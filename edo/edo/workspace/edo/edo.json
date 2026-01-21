@@ -1,21 +1,18 @@
 {
  "charts": [],
- "content": "[{\"id\":\"Z9nLCGwJhN\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>EDO</b></span>\",\"col\":12}},{\"id\":\"shortcut_section\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"\",\"col\":12}}]",
+ "content": "[{\"id\":\"edo_header\",\"type\":\"header\",\"data\":{\"text\":\"<span style=\\\"font-size: 18px;\\\"><b>Документы</b></span>\",\"col\":12}},{\"id\":\"edo_shortcut_1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"EDO Document\",\"col\":4}}]",
  "creation": "2026-01-21 12:00:00.000000",
  "custom_blocks": [],
  "docstatus": 0,
  "doctype": "Workspace",
- "extends": "",
- "extends_another_page": 0,
  "for_user": "",
  "hide_custom": 0,
  "icon": "file",
  "idx": 0,
- "indicator_color": "",
  "is_hidden": 0,
  "label": "EDO",
  "links": [],
- "modified": "2026-01-21 12:00:00.000000",
+ "modified": "2026-01-21 13:00:00.000000",
  "modified_by": "Administrator",
  "module": "EDO",
  "name": "EDO",
@@ -26,7 +23,14 @@
  "quick_lists": [],
  "restrict_to_domain": "",
  "roles": [],
- "sequence_id": 10,
- "shortcuts": [],
+ "sequence_id": 10.0,
+ "shortcuts": [
+  {
+   "doc_view": "List",
+   "label": "EDO Document",
+   "link_to": "EDO Document",
+   "type": "DocType"
+  }
+ ],
  "title": "EDO"
 }

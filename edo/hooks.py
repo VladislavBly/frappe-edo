@@ -5,6 +5,15 @@ app_description = "EDO"
 app_email = "vladik.blyahin@gmail.com"
 app_license = "mit"
 
+# Fixtures
+# --------
+fixtures = [
+    {
+        "dt": "Workspace",
+        "filters": [["module", "=", "EDO"]],
+    }
+]
+
 # Apps
 # ------------------
 

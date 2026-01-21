@@ -1,0 +1,74 @@
+{% extends "templates/web.html" %}
+
+{% block title %}{{ doc.title }}{% endblock %}
+
+{% block page_content %}
+<div class="container mt-4">
+	<div class="row">
+		<div class="col-12">
+			<nav aria-label="breadcrumb">
+				<ol class="breadcrumb">
+					<li class="breadcrumb-item"><a href="/edo-documents">{{ _("EDO Documents") }}</a></li>
+					<li class="breadcrumb-item active" aria-current="page">{{ doc.name }}</li>
+				</ol>
+			</nav>
+		</div>
+	</div>
+
+	<div class="row">
+		<div class="col-md-8">
+			<h1>{{ doc.title }}</h1>
+
+			<div class="card mt-3">
+				<div class="card-body">
+					<div class="row">
+						<div class="col-md-6">
+							<p><strong>{{ _("Document Type") }}:</strong> {{ doc.document_type or "-" }}</p>
+							<p><strong>{{ _("Status") }}:</strong> <span class="badge badge-info">{{ doc.status }}</span></p>
+						</div>
+						<div class="col-md-6">
+							<p><strong>{{ _("Document Date") }}:</strong> {{ frappe.utils.format_date(doc.document_date) if doc.document_date else "-" }}</p>
+							<p><strong>{{ _("Registration Date") }}:</strong> {{ frappe.utils.format_date(doc.registration_date) if doc.registration_date else "-" }}</p>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			{% if doc.description %}
+			<div class="card mt-3">
+				<div class="card-header">
+					<strong>{{ _("Description") }}</strong>
+				</div>
+				<div class="card-body">
+					{{ doc.description|safe }}
+				</div>
+			</div>
+			{% endif %}
+
+			{% if doc.author %}
+			<div class="card mt-3">
+				<div class="card-header">
+					<strong>{{ _("Author") }}</strong>
+				</div>
+				<div class="card-body">
+					{{ doc.author }}
+				</div>
+			</div>
+			{% endif %}
+		</div>
+
+		<div class="col-md-4">
+			<div class="card">
+				<div class="card-header">
+					<strong>{{ _("Document Info") }}</strong>
+				</div>
+				<div class="card-body">
+					<p><strong>{{ _("Document ID") }}:</strong><br>{{ doc.name }}</p>
+					<p><strong>{{ _("Created") }}:</strong><br>{{ frappe.utils.format_datetime(doc.creation) }}</p>
+					<p><strong>{{ _("Last Modified") }}:</strong><br>{{ frappe.utils.format_datetime(doc.modified) }}</p>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+{% endblock %}

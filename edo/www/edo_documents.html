@@ -1,0 +1,53 @@
+{% extends "templates/web.html" %}
+
+{% block title %}{{ _("EDO Documents") }}{% endblock %}
+
+{% block page_content %}
+<div class="container mt-4">
+	<h1>{{ _("EDO Documents") }}</h1>
+
+	<div class="row mt-4">
+		<div class="col-12">
+			<div id="edo-documents-list"></div>
+		</div>
+	</div>
+</div>
+
+<script>
+frappe.ready(function() {
+	frappe.call({
+		method: "edo.edo.doctype.edo_document.edo_document.get_portal_documents",
+		callback: function(r) {
+			if (r.message) {
+				render_documents(r.message);
+			}
+		}
+	});
+});
+
+function render_documents(documents) {
+	let html = '';
+
+	if (documents.length === 0) {
+		html = '<p class="text-muted">{{ _("No documents found") }}</p>';
+	} else {
+		html = '<div class="list-group">';
+		documents.forEach(function(doc) {
+			html += `
+				<a href="/edo-documents/${doc.name}" class="list-group-item list-group-item-action">
+					<div class="d-flex w-100 justify-content-between">
+						<h5 class="mb-1">${doc.title}</h5>
+						<small class="text-muted">${doc.document_date || ''}</small>
+					</div>
+					<p class="mb-1"><span class="badge badge-secondary">${doc.status}</span></p>
+					<small class="text-muted">${doc.document_type || ''}</small>
+				</a>
+			`;
+		});
+		html += '</div>';
+	}
+
+	document.getElementById('edo-documents-list').innerHTML = html;
+}
+</script>
+{% endblock %}

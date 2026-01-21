@@ -5,6 +5,12 @@ app_description = "EDO"
 app_email = "vladik.blyahin@gmail.com"
 app_license = "mit"
 
+# Fixtures
+# --------
+fixtures = [
+	{"dt": "Role", "filters": [["name", "in", ["EDO User"]]]},
+]
+
 # Apps
 # ------------------
 
@@ -60,15 +66,20 @@ app_license = "mit"
 # home_page = "login"
 
 # website user home page (by Role)
-# role_home_page = {
-# 	"Role": "home_page"
-# }
+role_home_page = {
+	"EDO User": "edo_documents"
+}
+
+# Portal configuration
+has_website_permission = {
+	"EDO Document": "edo.edo.doctype.edo_document.edo_document.has_website_permission"
+}
 
 # Generators
 # ----------
 
 # automatically create page for each record of this doctype
-# website_generators = ["Web Page"]
+website_generators = ["EDO Document"]
 
 # Jinja
 # ----------

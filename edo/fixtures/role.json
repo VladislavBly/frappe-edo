@@ -1,0 +1,10 @@
+[
+ {
+  "doctype": "Role",
+  "name": "EDO User",
+  "role_name": "EDO User",
+  "desk_access": 0,
+  "is_custom": 0,
+  "disabled": 0
+ }
+]

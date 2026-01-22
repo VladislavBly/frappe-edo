@@ -70,6 +70,9 @@ role_home_page = {
 	"EDO User": "edo_documents"
 }
 
+# Custom 404 page
+website_catch_all = "404"
+
 # Portal configuration
 has_website_permission = {
 	"EDO Document": "edo.edo.doctype.edo_document.edo_document.has_website_permission"

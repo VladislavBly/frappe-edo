@@ -2,52 +2,79 @@
 
 {% block title %}{{ _("EDO Documents") }}{% endblock %}
 
-{% block page_content %}
-<div class="container mt-4">
-	<h1>{{ _("EDO Documents") }}</h1>
+{% block head_include %}
+{% if css_files %}
+	{% for css_file in css_files %}
+	<link rel="stylesheet" href="/assets/edo/dist/{{ css_file }}">
+	{% endfor %}
+{% endif %}
+<style>
+	body {
+		margin: 0;
+		font-family: system-ui, -apple-system, sans-serif;
+	}
 
-	<div class="row mt-4">
-		<div class="col-12">
-			<div id="edo-documents-list"></div>
+	/* Скрыть навбар и футер Frappe */
+	.navbar,
+	.web-footer,
+	footer {
+		display: none !important;
+	}
+
+	/* Скрыть левый sidebar */
+	.web-sidebar,
+	.sidebar-column {
+		display: none !important;
+	}
+
+	/* Убрать все ограничения ширины контейнеров Frappe */
+	.container,
+	.container-fluid,
+	.main-section,
+	.page_content,
+	.page-content-wrapper,
+	.from-markdown,
+	.web-content,
+	main,
+	[data-page-container] {
+		max-width: 100% !important;
+		width: 100% !important;
+		margin: 0 !important;
+		padding: 0 !important;
+	}
+
+	/* Убрать row/col ограничения */
+	.row {
+		margin: 0 !important;
+	}
+
+	.col, .col-md-12, .col-lg-12, [class*="col-"] {
+		padding: 0 !important;
+		max-width: 100% !important;
+		flex: 0 0 100% !important;
+	}
+
+	#root {
+		min-height: 100vh;
+		width: 100vw;
+	}
+</style>
+{% endblock %}
+
+{% block page_content %}
+<div id="root">
+	<div style="display: flex; align-items: center; justify-content: center; min-height: 400px;">
+		<div style="text-align: center;">
+			<h2>Загрузка...</h2>
 		</div>
 	</div>
 </div>
 
+{% if js_file %}
+<script type="module" src="/assets/edo/dist/{{ js_file }}"></script>
+{% else %}
 <script>
-frappe.ready(function() {
-	frappe.call({
-		method: "edo.edo.doctype.edo_document.edo_document.get_portal_documents",
-		callback: function(r) {
-			if (r.message) {
-				render_documents(r.message);
-			}
-		}
-	});
-});
-
-function render_documents(documents) {
-	let html = '';
-
-	if (documents.length === 0) {
-		html = '<p class="text-muted">{{ _("No documents found") }}</p>';
-	} else {
-		html = '<div class="list-group">';
-		documents.forEach(function(doc) {
-			html += `
-				<a href="/edo-documents/${doc.name}" class="list-group-item list-group-item-action">
-					<div class="d-flex w-100 justify-content-between">
-						<h5 class="mb-1">${doc.title}</h5>
-						<small class="text-muted">${doc.document_date || ''}</small>
-					</div>
-					<p class="mb-1"><span class="badge badge-secondary">${doc.status}</span></p>
-					<small class="text-muted">${doc.document_type || ''}</small>
-				</a>
-			`;
-		});
-		html += '</div>';
-	}
-
-	document.getElementById('edo-documents-list').innerHTML = html;
-}
+	document.getElementById('root').innerHTML = '<div style="padding: 2rem; text-align: center;"><h2>Ошибка загрузки приложения</h2><p>Пожалуйста, пересоберите фронтенд командой:<br><code>cd frontend && yarn build</code></p></div>';
 </script>
+{% endif %}
 {% endblock %}

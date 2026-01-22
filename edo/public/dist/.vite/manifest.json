@@ -1,0 +1,11 @@
+{
+  "src/main.tsx": {
+    "file": "assets/edo-portal.CP85NR9I.js",
+    "name": "edo-portal",
+    "src": "src/main.tsx",
+    "isEntry": true,
+    "css": [
+      "assets/edo-portal.CyPaX6T3.css"
+    ]
+  }
+}

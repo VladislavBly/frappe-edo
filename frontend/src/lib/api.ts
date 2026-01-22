@@ -18,6 +18,15 @@ export interface User {
   user_image?: string
 }
 
+export interface Comment {
+  name: string
+  content: string
+  comment_email: string
+  comment_by: string
+  creation: string
+  owner: string
+}
+
 class FrappeAPI {
   private baseURL: string
 
@@ -104,6 +113,21 @@ class FrappeAPI {
       },
     })
     window.location.href = '/login'
+  }
+
+  async getComments(doctype: string, docname: string): Promise<Comment[]> {
+    return this.call('edo.edo.doctype.edo_document.edo_document.get_comments', {
+      doctype,
+      docname,
+    })
+  }
+
+  async addComment(doctype: string, docname: string, content: string): Promise<Comment> {
+    return this.call('edo.edo.doctype.edo_document.edo_document.add_comment', {
+      doctype,
+      docname,
+      content,
+    })
   }
 
   private getCSRFToken(): string {

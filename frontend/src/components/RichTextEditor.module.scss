@@ -1,0 +1,75 @@
+/* Content Editable Styles */
+.editor {
+  [contenteditable]:empty:before {
+    content: attr(data-placeholder);
+    color: rgb(148 163 184);
+    pointer-events: none;
+    font-style: normal;
+  }
+
+  [contenteditable] {
+    p {
+      margin: 0.8em 0;
+      line-height: 1.7;
+      color: rgb(30 41 59);
+
+      &:first-child {
+        margin-top: 0;
+      }
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+
+    ul,
+    ol {
+      margin: 1em 0;
+      padding-left: 2em;
+    }
+
+    ul {
+      list-style-type: disc;
+    }
+
+    ol {
+      list-style-type: decimal;
+    }
+
+    li {
+      margin: 0.5em 0;
+      line-height: 1.7;
+      color: rgb(30 41 59);
+
+      &::marker {
+        color: rgb(148 163 184);
+      }
+    }
+
+    a {
+      color: hsl(221.2 83.2% 53.3%);
+      text-decoration: underline;
+      text-decoration-color: hsl(221.2 83.2% 53.3% / 0.3);
+      text-underline-offset: 3px;
+      text-decoration-thickness: 1.5px;
+      transition: all 0.2s;
+
+      &:hover {
+        text-decoration-color: hsl(221.2 83.2% 53.3%);
+        color: hsl(221.2 83.2% 45%);
+      }
+    }
+
+    strong,
+    b {
+      font-weight: 600;
+      color: rgb(15 23 42);
+    }
+
+    em,
+    i {
+      font-style: italic;
+      color: rgb(51 65 85);
+    }
+  }
+}

@@ -1,6 +1,7 @@
 import { FileText, Calendar, Search } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Badge } from './ui/badge'
+import { Skeleton } from './ui/skeleton'
 import { cn } from '../lib/utils'
 import type { EDODocument } from '../lib/api'
 
@@ -36,8 +37,27 @@ export function DocumentSidebar({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-sm text-muted-foreground">{t('common.loading')}</div>
+      <div className="flex flex-col h-full">
+        {/* Search skeleton */}
+        <div className="p-3 border-b">
+          <Skeleton className="h-9 w-full" />
+        </div>
+
+        {/* Document list skeletons */}
+        <div className="flex-1 overflow-y-auto">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="p-4 border-b">
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-5 w-16 shrink-0" />
+              </div>
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="h-3 w-20" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     )
   }

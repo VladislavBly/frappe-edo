@@ -1,5 +1,6 @@
 import { FileText, Eye } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { Comments } from './Comments'
 import type { EDODocument } from '../lib/api'
 
 interface DocumentContentProps {
@@ -121,6 +122,11 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
               <p className="text-xs text-muted-foreground">{t('documentContent.signature')}</p>
             </div>
           </div>
+        </div>
+
+        {/* Comments */}
+        <div className="mt-8 border-t pt-6">
+          <Comments doctype="EDO Document" docname={document.name} />
         </div>
       </div>
     </div>

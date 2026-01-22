@@ -44,3 +44,63 @@ def get_portal_documents():
 	)
 
 	return documents
+
+
+@frappe.whitelist()
+def get_comments(doctype, docname):
+	"""Get comments for a document"""
+	user = frappe.session.user
+
+	if not user or user == "Guest":
+		frappe.throw("Not authorized", frappe.PermissionError)
+
+	# Check if user has permission to view the document
+	if not frappe.has_permission(doctype, "read", docname):
+		frappe.throw("No permission to view document", frappe.PermissionError)
+
+	comments = frappe.get_all(
+		"Comment",
+		filters={
+			"reference_doctype": doctype,
+			"reference_name": docname,
+			"comment_type": "Comment"
+		},
+		fields=["name", "content", "comment_email", "comment_by", "creation", "owner"],
+		order_by="creation asc"
+	)
+
+	return comments
+
+
+@frappe.whitelist()
+def add_comment(doctype, docname, content):
+	"""Add a comment to a document"""
+	user = frappe.session.user
+
+	if not user or user == "Guest":
+		frappe.throw("Not authorized", frappe.PermissionError)
+
+	# Check if user has permission to view the document
+	if not frappe.has_permission(doctype, "read", docname):
+		frappe.throw("No permission to view document", frappe.PermissionError)
+
+	# Create comment
+	comment = frappe.get_doc({
+		"doctype": "Comment",
+		"comment_type": "Comment",
+		"reference_doctype": doctype,
+		"reference_name": docname,
+		"content": content,
+		"comment_email": frappe.session.user,
+		"comment_by": frappe.get_value("User", user, "full_name") or user
+	})
+	comment.insert(ignore_permissions=True)
+
+	return {
+		"name": comment.name,
+		"content": comment.content,
+		"comment_email": comment.comment_email,
+		"comment_by": comment.comment_by,
+		"creation": comment.creation,
+		"owner": comment.owner
+	}

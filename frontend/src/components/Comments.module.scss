@@ -1,0 +1,144 @@
+/* Custom Scrollbar */
+.customScrollbar {
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 10px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: linear-gradient(180deg, hsl(221.2 83.2% 53.3% / 0.4), hsl(221.2 83.2% 53.3% / 0.6));
+    border-radius: 10px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    transition: all 0.3s ease;
+
+    &:hover {
+      background: linear-gradient(180deg, hsl(221.2 83.2% 53.3% / 0.6), hsl(221.2 83.2% 53.3% / 0.8));
+      border: 2px solid transparent;
+      background-clip: padding-box;
+    }
+
+    &:active {
+      background: hsl(221.2 83.2% 53.3%);
+    }
+  }
+
+  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: hsl(221.2 83.2% 53.3% / 0.5) transparent;
+}
+
+/* Comment Content Styles */
+.commentContent {
+  p {
+    margin: 0.5em 0;
+
+    &:first-child {
+      margin-top: 0;
+    }
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  ul,
+  ol {
+    margin: 0.5em 0;
+    padding-left: 1.5em;
+    list-style-position: outside;
+  }
+
+  ul {
+    list-style-type: disc;
+
+    ul {
+      list-style-type: circle;
+
+      ul {
+        list-style-type: square;
+      }
+    }
+  }
+
+  ol {
+    list-style-type: decimal;
+
+    ul {
+      list-style-type: circle;
+
+      ul {
+        list-style-type: square;
+      }
+    }
+  }
+
+  li {
+    display: list-item;
+    margin: 0.25em 0;
+  }
+
+  strong {
+    font-weight: 600;
+  }
+
+  em {
+    font-style: italic;
+  }
+
+  u {
+    text-decoration: underline;
+  }
+
+  s {
+    text-decoration: line-through;
+  }
+
+  blockquote {
+    border-left: 4px solid hsl(214.3 31.8% 91.4%);
+    padding-left: 1em;
+    margin: 0.5em 0;
+    color: hsl(215.4 16.3% 46.9%);
+  }
+
+  pre {
+    background: hsl(210 40% 96.1%);
+    padding: 0.5em;
+    border-radius: 4px;
+    overflow-x: auto;
+  }
+
+  code {
+    background: hsl(210 40% 96.1%);
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+
+  h1 {
+    font-size: 1.5em;
+    font-weight: 600;
+    margin: 0.5em 0;
+  }
+
+  h2 {
+    font-size: 1.3em;
+    font-weight: 600;
+    margin: 0.5em 0;
+  }
+
+  h3 {
+    font-size: 1.1em;
+    font-weight: 600;
+    margin: 0.5em 0;
+  }
+
+  a {
+    color: hsl(221.2 83.2% 53.3%);
+    text-decoration: underline;
+  }
+}

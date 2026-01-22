@@ -57,6 +57,12 @@
       "archived": "Arxivda"
     }
   },
+  "comments": "Izohlar",
+  "addComment": "Izoh qo'shish...",
+  "send": "Yuborish",
+  "sending": "Yuborilmoqda...",
+  "deleteCommentConfirm": "Bu izohni o'chirishni xohlaysizmi?",
+  "deleteCommentError": "Izohni o'chirib bo'lmadi",
   "header": {
     "userMenu": {
       "profile": "Profil"

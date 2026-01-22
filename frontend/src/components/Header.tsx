@@ -108,6 +108,24 @@ export function Header({ title, subtitle }: HeaderProps) {
                 <div className="px-4 py-2 border-b">
                   <p className="text-sm font-medium truncate">{user?.full_name}</p>
                   <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                  {user?.roles && user.roles.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {user.roles
+                        .filter(role => role.startsWith('EDO'))
+                        .map((role) => (
+                          <span
+                            key={role}
+                            className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                              role === 'EDO Admin'
+                                ? 'bg-primary/10 text-primary'
+                                : 'bg-muted text-muted-foreground'
+                            }`}
+                          >
+                            {role.replace('EDO ', '')}
+                          </span>
+                        ))}
+                    </div>
+                  )}
                 </div>
                 <button
                   onClick={handleLogout}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
+import { HashRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Sidebar } from './components/Sidebar'
 import { Header } from './components/Header'
@@ -86,15 +86,37 @@ function DocumentsPage({
           />
         </aside>
 
-        <main className="flex-1 overflow-hidden">
-          <DocumentContent
-            document={selectedDocument}
-            loading={loadingDocument}
-          />
+        <main className="flex-1 overflow-hidden relative">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={selectedDocument?.name || 'empty'}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className="h-full"
+            >
+              <DocumentContent
+                document={selectedDocument}
+                loading={loadingDocument}
+              />
+            </motion.div>
+          </AnimatePresence>
         </main>
 
-        <aside className="w-72 border-l bg-background shrink-0 overflow-hidden">
-          <DocumentMetadata document={selectedDocument} />
+        <aside className="w-72 border-l bg-background shrink-0 overflow-hidden relative">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={selectedDocument?.name || 'empty'}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+              className="h-full"
+            >
+              <DocumentMetadata document={selectedDocument} />
+            </motion.div>
+          </AnimatePresence>
         </aside>
       </motion.div>
     </>
@@ -196,9 +218,9 @@ function AppContent() {
 
 function App() {
   return (
-    <BrowserRouter>
+    <HashRouter>
       <AppContent />
-    </BrowserRouter>
+    </HashRouter>
   )
 }
 

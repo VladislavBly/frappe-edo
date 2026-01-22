@@ -18,8 +18,11 @@ def has_website_permission(doc, ptype, user, verbose=False):
 	if not user or user == "Guest":
 		return False
 
-	# Check if user has EDO User role
-	if "EDO User" in frappe.get_roles(user):
+	# Check if user has any EDO role
+	edo_roles = ["EDO User", "EDO Admin", "EDO Observer", "EDO Executor", "EDO Manager", "EDO Director"]
+	user_roles = frappe.get_roles(user)
+	
+	if any(role in user_roles for role in edo_roles):
 		return True
 
 	return False
@@ -33,8 +36,11 @@ def get_portal_documents():
 	if not user or user == "Guest":
 		return []
 
-	# Check if user has EDO User role
-	if "EDO User" not in frappe.get_roles(user):
+	# Check if user has any EDO role
+	edo_roles = ["EDO User", "EDO Admin", "EDO Observer", "EDO Executor", "EDO Manager", "EDO Director"]
+	user_roles = frappe.get_roles(user)
+	
+	if not any(role in user_roles for role in edo_roles):
 		return []
 
 	documents = frappe.get_all(
@@ -47,6 +53,42 @@ def get_portal_documents():
 
 
 @frappe.whitelist()
+def get_user_roles():
+	"""Get current user roles"""
+	user = frappe.session.user
+	
+	if not user or user == "Guest":
+		return []
+	
+	return frappe.get_roles(user)
+
+
+@frappe.whitelist()
+def get_document(name):
+	"""Get a single document by name"""
+	user = frappe.session.user
+
+	if not user or user == "Guest":
+		frappe.throw("Not authorized", frappe.PermissionError)
+
+	# Check if user has any EDO role
+	edo_roles = ["EDO User", "EDO Admin", "EDO Observer", "EDO Executor", "EDO Manager", "EDO Director"]
+	user_roles = frappe.get_roles(user)
+	
+	if not any(role in user_roles for role in edo_roles):
+		frappe.throw("No permission to view documents", frappe.PermissionError)
+
+	# Get document
+	doc = frappe.get_doc("EDO Document", name)
+	
+	# Check website permission
+	if not has_website_permission(doc, "read", user):
+		frappe.throw("No permission to view document", frappe.PermissionError)
+	
+	return doc.as_dict()
+
+
+@frappe.whitelist()
 def get_comments(doctype, docname):
 	"""Get comments for a document"""
 	user = frappe.session.user
@@ -54,9 +96,18 @@ def get_comments(doctype, docname):
 	if not user or user == "Guest":
 		frappe.throw("Not authorized", frappe.PermissionError)
 
-	# Check if user has permission to view the document
-	if not frappe.has_permission(doctype, "read", docname):
+	# Check if user has any EDO role
+	edo_roles = ["EDO User", "EDO Admin", "EDO Observer", "EDO Executor", "EDO Manager", "EDO Director"]
+	user_roles = frappe.get_roles(user)
+	
+	if not any(role in user_roles for role in edo_roles):
 		frappe.throw("No permission to view document", frappe.PermissionError)
+	
+	# Check if document exists and user has website permission
+	if doctype == "EDO Document":
+		doc = frappe.get_doc(doctype, docname)
+		if not has_website_permission(doc, "read", user):
+			frappe.throw("No permission to view document", frappe.PermissionError)
 
 	comments = frappe.get_all(
 		"Comment",
@@ -80,9 +131,18 @@ def add_comment(doctype, docname, content):
 	if not user or user == "Guest":
 		frappe.throw("Not authorized", frappe.PermissionError)
 
-	# Check if user has permission to view the document
-	if not frappe.has_permission(doctype, "read", docname):
+	# Check if user has any EDO role
+	edo_roles = ["EDO User", "EDO Admin", "EDO Observer", "EDO Executor", "EDO Manager", "EDO Director"]
+	user_roles = frappe.get_roles(user)
+	
+	if not any(role in user_roles for role in edo_roles):
 		frappe.throw("No permission to view document", frappe.PermissionError)
+	
+	# Check if document exists and user has website permission
+	if doctype == "EDO Document":
+		doc = frappe.get_doc(doctype, docname)
+		if not has_website_permission(doc, "read", user):
+			frappe.throw("No permission to view document", frappe.PermissionError)
 
 	# Create comment
 	comment = frappe.get_doc({
@@ -104,3 +164,24 @@ def add_comment(doctype, docname, content):
 		"creation": comment.creation,
 		"owner": comment.owner
 	}
+
+
+@frappe.whitelist()
+def delete_comment(comment_name):
+	"""Delete a comment (only for EDO Admin)"""
+	user = frappe.session.user
+
+	if not user or user == "Guest":
+		frappe.throw("Not authorized", frappe.PermissionError)
+
+	# Only EDO Admin can delete comments
+	if "EDO Admin" not in frappe.get_roles(user):
+		frappe.throw("Only administrators can delete comments", frappe.PermissionError)
+
+	# Get comment to check it exists
+	comment = frappe.get_doc("Comment", comment_name)
+	
+	# Delete comment
+	frappe.delete_doc("Comment", comment_name, force=1, ignore_permissions=True)
+	
+	return {"success": True}

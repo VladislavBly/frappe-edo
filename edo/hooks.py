@@ -8,7 +8,7 @@ app_license = "mit"
 # Fixtures
 # --------
 fixtures = [
-	{"dt": "Role", "filters": [["name", "in", ["EDO User"]]]},
+	{"dt": "Role", "filters": [["name", "in", ["EDO User", "EDO Admin", "EDO Observer", "EDO Executor", "EDO Manager", "EDO Director"]]]},
 ]
 
 # Apps
@@ -67,11 +67,29 @@ fixtures = [
 
 # website user home page (by Role)
 role_home_page = {
-	"EDO User": "edo_documents"
+	"EDO User": "edo_documents",
+	"EDO Admin": "edo_documents",
+	"EDO Observer": "edo_documents",
+	"EDO Executor": "edo_documents",
+	"EDO Manager": "edo_documents",
+	"EDO Director": "edo_documents"
 }
 
 # Custom 404 page
 website_catch_all = "404"
+
+# Website route rules for SPA routing
+# This ensures all React Router paths are handled by the same page
+website_route_rules = [
+	{
+		"from_route": "/documents/<path:app_path>",
+		"to_route": "edo_documents"
+	},
+	{
+		"from_route": "/documents",
+		"to_route": "edo_documents"
+	}
+]
 
 # Portal configuration
 has_website_permission = {
@@ -97,7 +115,7 @@ website_generators = ["EDO Document"]
 # ------------
 
 # before_install = "edo.install.before_install"
-# after_install = "edo.install.after_install"
+after_install = "edo.utils.setup_permissions.setup_admin_permissions"
 
 # Uninstallation
 # ------------
@@ -212,6 +230,10 @@ website_generators = ["EDO Document"]
 # ----------------
 # before_request = ["edo.utils.before_request"]
 # after_request = ["edo.utils.after_request"]
+
+# Route handling for SPA
+# Redirect all /documents/* routes to edo_documents page
+before_route = ["edo.utils.routing.before_route"]
 
 # Job Events
 # ----------

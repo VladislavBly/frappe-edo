@@ -4,7 +4,7 @@ import { Button } from './ui/button'
 import { RichTextEditor } from './RichTextEditor'
 import { api } from '../lib/api'
 import type { Comment } from '../lib/api'
-import { MessageSquare, Send } from 'lucide-react'
+import { MessageSquare, Send, Trash2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import styles from './Comments.module.scss'
 
@@ -21,13 +21,25 @@ export function Comments({ doctype, docname }: CommentsProps) {
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [lastCommentId, setLastCommentId] = useState<string | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
   const commentsListRef = useRef<HTMLDivElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const formRef = useRef<HTMLFormElement>(null)
 
   useEffect(() => {
     loadComments()
+    checkAdminRole()
   }, [doctype, docname])
+
+  const checkAdminRole = async () => {
+    try {
+      const user = await api.getCurrentUser()
+      setIsAdmin(user.roles?.includes('EDO Admin') || false)
+    } catch (error) {
+      console.error('Failed to check admin role:', error)
+      setIsAdmin(false)
+    }
+  }
 
   const loadComments = async () => {
     setLoading(true)
@@ -115,6 +127,25 @@ export function Comments({ doctype, docname }: CommentsProps) {
       .slice(0, 2)
   }
 
+  const handleDeleteComment = async (commentName: string) => {
+    if (!isAdmin) return
+    
+    const confirmMessage = t('deleteCommentConfirm') || 'Вы уверены, что хотите удалить этот комментарий?'
+    if (!confirm(confirmMessage)) {
+      return
+    }
+
+    try {
+      await api.deleteComment(commentName)
+      // Remove comment from list
+      setAllComments(prev => prev.filter(c => c.name !== commentName))
+    } catch (error) {
+      console.error('Failed to delete comment:', error)
+      const errorMessage = t('deleteCommentError') || 'Не удалось удалить комментарий'
+      alert(errorMessage)
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 text-sm font-medium">
@@ -161,11 +192,23 @@ export function Comments({ doctype, docname }: CommentsProps) {
                     </span>
                   </div>
                   <div className="flex-1 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">{comment.comment_by}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {formatDate(comment.creation)}
-                      </span>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">{comment.comment_by}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {formatDate(comment.creation)}
+                        </span>
+                      </div>
+                      {isAdmin && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteComment(comment.name)}
+                          className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      )}
                     </div>
                     <div
                       className={`text-sm text-foreground ${styles.commentContent}`}

@@ -1,4 +1,5 @@
 import { FileText, Calendar, Search } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Badge } from './ui/badge'
 import { cn } from '../lib/utils'
 import type { EDODocument } from '../lib/api'
@@ -18,23 +19,25 @@ export function DocumentSidebar({
   loading,
   error,
 }: DocumentSidebarProps) {
+  const { t } = useTranslation()
+  
   const getStatusVariant = (status: string) => {
-    switch (status) {
-      case 'Подписан':
-        return 'default'
-      case 'На подписании':
-        return 'secondary'
-      case 'Архив':
-        return 'outline'
-      default:
-        return 'secondary'
+    if (status === t('documents.status.signed') || status === 'Подписан') {
+      return 'default'
     }
+    if (status === t('documents.status.pending') || status === 'На подписании') {
+      return 'secondary'
+    }
+    if (status === t('documents.status.archived') || status === 'Архив') {
+      return 'outline'
+    }
+    return 'secondary'
   }
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-sm text-muted-foreground">Загрузка...</div>
+        <div className="text-sm text-muted-foreground">{t('common.loading')}</div>
       </div>
     )
   }
@@ -42,7 +45,7 @@ export function DocumentSidebar({
   if (error) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-sm text-destructive">Ошибка: {error}</div>
+        <div className="text-sm text-destructive">{t('common.error')}: {error}</div>
       </div>
     )
   }
@@ -51,7 +54,7 @@ export function DocumentSidebar({
     return (
       <div className="flex flex-col items-center justify-center h-64 text-center p-4">
         <FileText className="w-12 h-12 text-muted-foreground mb-3" />
-        <p className="text-sm text-muted-foreground">Нет документов</p>
+        <p className="text-sm text-muted-foreground">{t('documentSidebar.noDocuments')}</p>
       </div>
     )
   }
@@ -64,7 +67,7 @@ export function DocumentSidebar({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Поиск документов..."
+            placeholder={t('documentSidebar.searchPlaceholder')}
             className="w-full pl-9 pr-3 py-2 text-sm border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>

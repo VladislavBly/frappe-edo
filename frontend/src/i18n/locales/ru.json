@@ -1,0 +1,105 @@
+{
+  "common": {
+    "loading": "Загрузка...",
+    "error": "Ошибка",
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "delete": "Удалить",
+    "edit": "Редактировать",
+    "search": "Поиск",
+    "settings": "Настройки",
+    "help": "Помощь",
+    "logout": "Выйти",
+    "of": "из"
+  },
+  "app": {
+    "name": "EDO",
+    "subtitle": "Документооборот"
+  },
+  "navigation": {
+    "dashboard": "Панель управления",
+    "documents": "Документы"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Обзор системы электронного документооборота",
+    "stats": {
+      "total": "Всего документов",
+      "pending": "На подписании",
+      "signed": "Подписано",
+      "archived": "В архиве"
+    },
+    "pendingSignatures": "Требуют подписания",
+    "recentDocuments": "Последние документы",
+    "noPending": "Нет документов на подписании",
+    "noDocuments": "Нет документов",
+    "waiting": "Ожидает"
+  },
+  "documents": {
+    "title": "Документы",
+    "subtitle": "Управление документами",
+    "loadError": "Не удалось загрузить документы",
+    "noDocumentSelected": "Выберите документ для просмотра",
+    "loading": "Загрузка документа...",
+    "fields": {
+      "title": "Название",
+      "documentType": "Тип документа",
+      "status": "Статус",
+      "documentDate": "Дата документа",
+      "registrationDate": "Дата регистрации",
+      "description": "Описание",
+      "author": "Автор"
+    },
+    "status": {
+      "inProgress": "В процессе",
+      "pending": "На подписании",
+      "signed": "Подписан",
+      "archived": "Архив"
+    }
+  },
+  "header": {
+    "userMenu": {
+      "profile": "Профиль"
+    }
+  },
+  "documentSidebar": {
+    "searchPlaceholder": "Поиск документов...",
+    "noDocuments": "Нет документов"
+  },
+  "documentContent": {
+    "loading": "Загрузка документа...",
+    "noDocumentSelected": "Выберите документ",
+    "selectDocumentMessage": "Выберите документ из списка слева для просмотра",
+    "tabs": {
+      "document": "Документ",
+      "signatures": "Подписи",
+      "history": "История"
+    },
+    "viewMode": "Режим просмотра",
+    "signatureRequired": "Требуется подпись",
+    "signatureWaiting": "Документ ожидает подписи от уполномоченных лиц",
+    "noContent": "Содержимое документа не указано",
+    "supplier": "ПОСТАВЩИК:",
+    "buyer": "ПОКУПАТЕЛЬ:",
+    "signature": "Подпись / ЭЦП",
+    "notSpecified": "Не указан"
+  },
+  "documentMetadata": {
+    "documentInfo": "Информация о документе",
+    "documentNumber": "Номер документа",
+    "documentType": "Тип документа",
+    "creationDate": "Дата создания",
+    "from": "От кого",
+    "organization": "Организация",
+    "status": "Статус",
+    "signingProgress": "Прогресс подписания",
+    "signaturesRequired": "Требуется подписи",
+    "signedAt": "Подписано",
+    "waitingSignature": "Ожидает подписи",
+    "actions": "Действия",
+    "sign": "Подписать",
+    "download": "Скачать документ",
+    "print": "Печать",
+    "history": "История изменений"
+  }
+}

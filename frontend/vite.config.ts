@@ -12,7 +12,7 @@ export default defineConfig({
   },
   build: {
     outDir: '../edo/public/dist',
-    emptyOutDir: true,
+    emptyOutDir: false,
     manifest: true,
     rollupOptions: {
       input: {

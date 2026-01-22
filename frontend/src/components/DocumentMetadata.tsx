@@ -1,4 +1,5 @@
 import { CheckCircle2, Clock, Download, Printer, History, PenLine } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { Button } from './ui/button'
 import type { EDODocument } from '../lib/api'
 
@@ -14,6 +15,8 @@ interface DocumentMetadataProps {
 }
 
 export function DocumentMetadata({ document }: DocumentMetadataProps) {
+  const { t, i18n } = useTranslation()
+  
   if (!document) {
     return null
   }
@@ -43,20 +46,21 @@ export function DocumentMetadata({ document }: DocumentMetadataProps) {
   const totalSigners = signers.length
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Подписан':
-        return 'text-green-600'
-      case 'На подписании':
-        return 'text-orange-500'
-      case 'Архив':
-        return 'text-gray-500'
-      default:
-        return 'text-gray-500'
+    if (status === t('documents.status.signed') || status === 'Подписан') {
+      return 'text-green-600'
     }
+    if (status === t('documents.status.pending') || status === 'На подписании') {
+      return 'text-orange-500'
+    }
+    if (status === t('documents.status.archived') || status === 'Архив') {
+      return 'text-gray-500'
+    }
+    return 'text-gray-500'
   }
 
   const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('ru-RU')
+    const locale = i18n.language === 'uz' ? 'uz-UZ' : i18n.language === 'en' ? 'en-US' : 'ru-RU'
+    return new Date(dateStr).toLocaleDateString(locale)
   }
 
   return (
@@ -65,43 +69,43 @@ export function DocumentMetadata({ document }: DocumentMetadataProps) {
         {/* Document info header */}
         <div>
           <h3 className="text-sm font-medium text-muted-foreground mb-3">
-            Информация о документе
+            {t('documentMetadata.documentInfo')}
           </h3>
 
           <div className="space-y-3">
             <div>
-              <p className="text-xs text-muted-foreground">Номер документа</p>
+              <p className="text-xs text-muted-foreground">{t('documentMetadata.documentNumber')}</p>
               <p className="font-medium">{document.name}</p>
             </div>
 
             {document.document_type && (
               <div>
-                <p className="text-xs text-muted-foreground">Тип документа</p>
+                <p className="text-xs text-muted-foreground">{t('documentMetadata.documentType')}</p>
                 <p className="font-medium">{document.document_type}</p>
               </div>
             )}
 
             {document.document_date && (
               <div>
-                <p className="text-xs text-muted-foreground">Дата создания</p>
+                <p className="text-xs text-muted-foreground">{t('documentMetadata.creationDate')}</p>
                 <p className="font-medium">{formatDate(document.document_date)}</p>
               </div>
             )}
 
             {document.author && (
               <div>
-                <p className="text-xs text-muted-foreground">От кого</p>
+                <p className="text-xs text-muted-foreground">{t('documentMetadata.from')}</p>
                 <p className="font-medium">{document.author}</p>
               </div>
             )}
 
             <div>
-              <p className="text-xs text-muted-foreground">Организация</p>
+              <p className="text-xs text-muted-foreground">{t('documentMetadata.organization')}</p>
               <p className="font-medium">АК "Узбектелеком"</p>
             </div>
 
             <div>
-              <p className="text-xs text-muted-foreground">Статус</p>
+              <p className="text-xs text-muted-foreground">{t('documentMetadata.status')}</p>
               <p className={`font-medium ${getStatusColor(document.status)}`}>
                 {document.status}
               </p>
@@ -112,9 +116,9 @@ export function DocumentMetadata({ document }: DocumentMetadataProps) {
         {/* Signing progress */}
         <div>
           <h3 className="text-sm font-medium text-muted-foreground mb-3">
-            Прогресс подписания
+            {t('documentMetadata.signingProgress')}
           </h3>
-          <p className="text-sm mb-2">{signedCount} из {totalSigners}</p>
+          <p className="text-sm mb-2">{signedCount} {t('common.of')} {totalSigners}</p>
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div
               className="bg-green-500 h-2 rounded-full transition-all"
@@ -126,7 +130,7 @@ export function DocumentMetadata({ document }: DocumentMetadataProps) {
         {/* Signers list */}
         <div>
           <h3 className="text-sm font-medium text-muted-foreground mb-3">
-            Требуется подписи
+            {t('documentMetadata.signaturesRequired')}
           </h3>
           <div className="space-y-3">
             {signers.map((signer, index) => (
@@ -147,12 +151,12 @@ export function DocumentMetadata({ document }: DocumentMetadataProps) {
                   <p className="text-xs text-muted-foreground">{signer.role}</p>
                   {signer.signed && signer.signedAt && (
                     <p className="text-xs text-green-600 mt-1">
-                      Подписано {signer.signedAt}
+                      {t('documentMetadata.signedAt')} {signer.signedAt}
                     </p>
                   )}
                   {!signer.signed && (
                     <p className="text-xs text-orange-500 mt-1">
-                      Ожидает подписи
+                      {t('documentMetadata.waitingSignature')}
                     </p>
                   )}
                 </div>
@@ -164,26 +168,26 @@ export function DocumentMetadata({ document }: DocumentMetadataProps) {
         {/* Actions */}
         <div>
           <h3 className="text-sm font-medium text-muted-foreground mb-3">
-            Действия
+            {t('documentMetadata.actions')}
           </h3>
           <div className="space-y-2">
-            {document.status === 'На подписании' && (
+            {(document.status === t('documents.status.pending') || document.status === 'На подписании') && (
               <Button className="w-full" size="sm">
                 <PenLine className="w-4 h-4" />
-                Подписать
+                {t('documentMetadata.sign')}
               </Button>
             )}
             <Button variant="outline" className="w-full" size="sm">
               <Download className="w-4 h-4" />
-              Скачать документ
+              {t('documentMetadata.download')}
             </Button>
             <Button variant="outline" className="w-full" size="sm">
               <Printer className="w-4 h-4" />
-              Печать
+              {t('documentMetadata.print')}
             </Button>
             <Button variant="outline" className="w-full" size="sm">
               <History className="w-4 h-4" />
-              История изменений
+              {t('documentMetadata.history')}
             </Button>
           </div>
         </div>

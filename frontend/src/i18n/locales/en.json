@@ -1,0 +1,105 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Error",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "search": "Search",
+    "settings": "Settings",
+    "help": "Help",
+    "logout": "Logout",
+    "of": "of"
+  },
+  "app": {
+    "name": "EDO",
+    "subtitle": "Document Management"
+  },
+  "navigation": {
+    "dashboard": "Dashboard",
+    "documents": "Documents"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "subtitle": "Electronic document management system overview",
+    "stats": {
+      "total": "Total Documents",
+      "pending": "Pending Signature",
+      "signed": "Signed",
+      "archived": "Archived"
+    },
+    "pendingSignatures": "Require Signature",
+    "recentDocuments": "Recent Documents",
+    "noPending": "No documents pending signature",
+    "noDocuments": "No documents",
+    "waiting": "Waiting"
+  },
+  "documents": {
+    "title": "Documents",
+    "subtitle": "Document Management",
+    "loadError": "Failed to load documents",
+    "noDocumentSelected": "Select a document to view",
+    "loading": "Loading document...",
+    "fields": {
+      "title": "Title",
+      "documentType": "Document Type",
+      "status": "Status",
+      "documentDate": "Document Date",
+      "registrationDate": "Registration Date",
+      "description": "Description",
+      "author": "Author"
+    },
+    "status": {
+      "inProgress": "In Progress",
+      "pending": "Pending",
+      "signed": "Signed",
+      "archived": "Archived"
+    }
+  },
+  "header": {
+    "userMenu": {
+      "profile": "Profile"
+    }
+  },
+  "documentSidebar": {
+    "searchPlaceholder": "Search documents...",
+    "noDocuments": "No documents"
+  },
+  "documentContent": {
+    "loading": "Loading document...",
+    "noDocumentSelected": "Select a document",
+    "selectDocumentMessage": "Select a document from the list on the left to view",
+    "tabs": {
+      "document": "Document",
+      "signatures": "Signatures",
+      "history": "History"
+    },
+    "viewMode": "View mode",
+    "signatureRequired": "Signature required",
+    "signatureWaiting": "Document is waiting for signatures from authorized persons",
+    "noContent": "Document content not specified",
+    "supplier": "SUPPLIER:",
+    "buyer": "BUYER:",
+    "signature": "Signature / EDS",
+    "notSpecified": "Not specified"
+  },
+  "documentMetadata": {
+    "documentInfo": "Document Information",
+    "documentNumber": "Document Number",
+    "documentType": "Document Type",
+    "creationDate": "Creation Date",
+    "from": "From",
+    "organization": "Organization",
+    "status": "Status",
+    "signingProgress": "Signing Progress",
+    "signaturesRequired": "Signatures Required",
+    "signedAt": "Signed at",
+    "waitingSignature": "Waiting for signature",
+    "actions": "Actions",
+    "sign": "Sign",
+    "download": "Download document",
+    "print": "Print",
+    "history": "Change history"
+  }
+}

@@ -1,0 +1,105 @@
+{
+  "common": {
+    "loading": "Yuklanmoqda...",
+    "error": "Xatolik",
+    "save": "Saqlash",
+    "cancel": "Bekor qilish",
+    "delete": "O'chirish",
+    "edit": "Tahrirlash",
+    "search": "Qidirish",
+    "settings": "Sozlamalar",
+    "help": "Yordam",
+    "logout": "Chiqish",
+    "of": "dan"
+  },
+  "app": {
+    "name": "EDO",
+    "subtitle": "Hujjatlar boshqaruvi"
+  },
+  "navigation": {
+    "dashboard": "Boshqaruv paneli",
+    "documents": "Hujjatlar"
+  },
+  "dashboard": {
+    "title": "Boshqaruv paneli",
+    "subtitle": "Elektron hujjatlar boshqaruvi tizimi ko'rinishi",
+    "stats": {
+      "total": "Jami hujjatlar",
+      "pending": "Imzolanishi kerak",
+      "signed": "Imzolangan",
+      "archived": "Arxivda"
+    },
+    "pendingSignatures": "Imzo talab qilinadi",
+    "recentDocuments": "So'nggi hujjatlar",
+    "noPending": "Imzolanishi kerak bo'lgan hujjatlar yo'q",
+    "noDocuments": "Hujjatlar yo'q",
+    "waiting": "Kutilmoqda"
+  },
+  "documents": {
+    "title": "Hujjatlar",
+    "subtitle": "Hujjatlar boshqaruvi",
+    "loadError": "Hujjatlarni yuklab bo'lmadi",
+    "noDocumentSelected": "Ko'rish uchun hujjatni tanlang",
+    "loading": "Hujjat yuklanmoqda...",
+    "fields": {
+      "title": "Nomi",
+      "documentType": "Hujjat turi",
+      "status": "Holati",
+      "documentDate": "Hujjat sanasi",
+      "registrationDate": "Ro'yxatga olish sanasi",
+      "description": "Tavsif",
+      "author": "Muallif"
+    },
+    "status": {
+      "inProgress": "Jarayonda",
+      "pending": "Imzolanishi kerak",
+      "signed": "Imzolangan",
+      "archived": "Arxivda"
+    }
+  },
+  "header": {
+    "userMenu": {
+      "profile": "Profil"
+    }
+  },
+  "documentSidebar": {
+    "searchPlaceholder": "Hujjatlarni qidirish...",
+    "noDocuments": "Hujjatlar yo'q"
+  },
+  "documentContent": {
+    "loading": "Hujjat yuklanmoqda...",
+    "noDocumentSelected": "Hujjatni tanlang",
+    "selectDocumentMessage": "Ko'rish uchun chapdagi ro'yxatdan hujjatni tanlang",
+    "tabs": {
+      "document": "Hujjat",
+      "signatures": "Imzolar",
+      "history": "Tarix"
+    },
+    "viewMode": "Ko'rish rejimi",
+    "signatureRequired": "Imzo talab qilinadi",
+    "signatureWaiting": "Hujjat vakolatli shaxslardan imzo kutmoqda",
+    "noContent": "Hujjat mazmuni ko'rsatilmagan",
+    "supplier": "TA'MINOTCHI:",
+    "buyer": "XARIDOR:",
+    "signature": "Imzo / EDS",
+    "notSpecified": "Ko'rsatilmagan"
+  },
+  "documentMetadata": {
+    "documentInfo": "Hujjat ma'lumotlari",
+    "documentNumber": "Hujjat raqami",
+    "documentType": "Hujjat turi",
+    "creationDate": "Yaratilgan sana",
+    "from": "Kimdan",
+    "organization": "Tashkilot",
+    "status": "Holati",
+    "signingProgress": "Imzolash jarayoni",
+    "signaturesRequired": "Imzolar talab qilinadi",
+    "signedAt": "Imzolangan",
+    "waitingSignature": "Imzo kutmoqda",
+    "actions": "Harakatlar",
+    "sign": "Imzolash",
+    "download": "Hujjatni yuklab olish",
+    "print": "Chop etish",
+    "history": "O'zgarishlar tarixi"
+  }
+}

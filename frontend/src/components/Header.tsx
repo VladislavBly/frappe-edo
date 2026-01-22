@@ -1,8 +1,16 @@
 import { useEffect, useState } from 'react'
-import { LogOut, User, FileText } from 'lucide-react'
+import { Search, Bell, LogOut, User, ChevronDown } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { api, type User as UserType } from '../lib/api'
+import { LanguageSwitcher } from './LanguageSwitcher'
 
-export function Header() {
+interface HeaderProps {
+  title: string
+  subtitle?: string
+}
+
+export function Header({ title, subtitle }: HeaderProps) {
+  const { t } = useTranslation()
   const [user, setUser] = useState<UserType | null>(null)
   const [showMenu, setShowMenu] = useState(false)
 
@@ -38,26 +46,39 @@ export function Header() {
   }
 
   return (
-    <header className="border-b bg-white shrink-0">
-      <div className="flex items-center justify-between px-6 py-3">
-        {/* Logo & Title */}
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-primary rounded-lg flex items-center justify-center">
-            <FileText className="w-5 h-5 text-primary-foreground" />
-          </div>
-          <div>
-            <h1 className="text-lg font-semibold">EDO</h1>
-            <p className="text-xs text-muted-foreground">
-              Электронный документооборот
-            </p>
-          </div>
-        </div>
+    <header className="h-14 border-b bg-white flex items-center justify-between px-6 shrink-0">
+      {/* Left - Page title */}
+      <div>
+        <h1 className="text-lg font-semibold">{title}</h1>
+        {subtitle && (
+          <p className="text-xs text-muted-foreground">{subtitle}</p>
+        )}
+      </div>
 
-        {/* User menu */}
+      {/* Right - Actions */}
+      <div className="flex items-center gap-2">
+        {/* Search */}
+        <button className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors">
+          <Search className="w-5 h-5" />
+        </button>
+
+        {/* Notifications */}
+        <button className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors relative">
+          <Bell className="w-5 h-5" />
+          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
+        </button>
+
+        {/* Language Switcher */}
+        <LanguageSwitcher />
+
+        {/* Divider */}
+        <div className="w-px h-8 bg-border mx-2" />
+
+        {/* User profile */}
         <div className="relative">
           <button
             onClick={() => setShowMenu(!showMenu)}
-            className="flex items-center gap-3 hover:bg-muted rounded-lg px-3 py-2 transition-colors"
+            className="flex items-center gap-2 hover:bg-muted rounded-lg px-2 py-1.5 transition-colors"
           >
             {user?.user_image ? (
               <img
@@ -70,9 +91,10 @@ export function Header() {
                 {user ? getInitials(user.full_name) : <User className="w-4 h-4" />}
               </div>
             )}
-            <span className="text-sm font-medium hidden sm:block">
-              {user?.full_name || 'Загрузка...'}
+            <span className="text-sm font-medium hidden md:block max-w-32 truncate">
+              {user?.full_name || t('common.loading')}
             </span>
+            <ChevronDown className="w-4 h-4 text-muted-foreground" />
           </button>
 
           {/* Dropdown menu */}
@@ -84,15 +106,15 @@ export function Header() {
               />
               <div className="absolute right-0 top-full mt-1 w-56 bg-white border rounded-lg shadow-lg z-20 py-1">
                 <div className="px-4 py-2 border-b">
-                  <p className="text-sm font-medium">{user?.full_name}</p>
-                  <p className="text-xs text-muted-foreground">{user?.email}</p>
+                  <p className="text-sm font-medium truncate">{user?.full_name}</p>
+                  <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
                 </div>
                 <button
                   onClick={handleLogout}
                   className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
                 >
                   <LogOut className="w-4 h-4" />
-                  Выйти
+                  {t('common.logout')}
                 </button>
               </div>
             </>

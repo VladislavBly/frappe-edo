@@ -1,0 +1,32 @@
+[
+ {
+  "doctype": "EDO Delivery Method",
+  "name": "Почтой",
+  "delivery_method_name": "Почтой",
+  "description": "Доставка почтовой службой"
+ },
+ {
+  "doctype": "EDO Delivery Method",
+  "name": "Курьером",
+  "delivery_method_name": "Курьером",
+  "description": "Доставка курьерской службой"
+ },
+ {
+  "doctype": "EDO Delivery Method",
+  "name": "Электронной почтой",
+  "delivery_method_name": "Электронной почтой",
+  "description": "Доставка по электронной почте"
+ },
+ {
+  "doctype": "EDO Delivery Method",
+  "name": "Вручную",
+  "delivery_method_name": "Вручную",
+  "description": "Личная передача документа"
+ },
+ {
+  "doctype": "EDO Delivery Method",
+  "name": "Факсом",
+  "delivery_method_name": "Факсом",
+  "description": "Передача факсимильной связью"
+ }
+]

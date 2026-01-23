@@ -1,4 +1,4 @@
-import { FileText, Eye } from 'lucide-react'
+import { FileText } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Comments } from './Comments'
 import type { EDODocument } from '../lib/api'
@@ -9,7 +9,7 @@ interface DocumentContentProps {
 }
 
 export function DocumentContent({ document, loading }: DocumentContentProps) {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   
   if (loading) {
     return (
@@ -31,16 +31,6 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
     )
   }
 
-  // Format document date for display
-  const formatDate = (dateStr: string) => {
-    const locale = i18n.language === 'uz' ? 'uz-UZ' : i18n.language === 'en' ? 'en-US' : 'ru-RU'
-    return new Date(dateStr).toLocaleDateString(locale, {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    })
-  }
-
   return (
     <div className="h-full flex flex-col">
       {/* Tabs */}
@@ -60,69 +50,75 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-6">
-        {/* Document header */}
-        <div className="flex items-start justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold mb-2">{document.title}</h1>
-            <p className="text-muted-foreground text-sm">
-              № {document.name} от {document.document_date && formatDate(document.document_date)}
-            </p>
+        {/* PDF Preview */}
+        {document.main_document ? (
+          <div className="bg-white border rounded-lg shadow-sm mb-6">
+            <div className="p-4 border-b">
+              <h3 className="text-sm font-medium">Превью документа</h3>
+            </div>
+            <div className="w-full" style={{ height: '800px' }}>
+              <iframe
+                src={`${document.main_document}#toolbar=0`}
+                className="w-full h-full border-0"
+                title="Document Preview"
+              />
+            </div>
           </div>
-          <button className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-            <Eye className="w-4 h-4" />
-            {t('documentContent.viewMode')}
-          </button>
-        </div>
+        ) : (
+          <div className="bg-white border rounded-lg shadow-sm mb-6 p-12 text-center text-muted-foreground">
+            <FileText className="w-16 h-16 mx-auto mb-4 opacity-50" />
+            <p>Документ не загружен</p>
+          </div>
+        )}
 
-        {/* Alert banner if pending signatures */}
-        {(document.status === t('documents.status.pending') || document.status === 'На подписании') && (
-          <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
-            <div className="flex items-start gap-3">
-              <div className="w-5 h-5 rounded-full bg-orange-400 flex items-center justify-center shrink-0 mt-0.5">
-                <span className="text-white text-xs">!</span>
-              </div>
-              <div>
-                <p className="font-medium text-orange-800">{t('documentContent.signatureRequired')}</p>
-                <p className="text-sm text-orange-700">
-                  {t('documentContent.signatureWaiting')}
-                </p>
-              </div>
+        {/* Attachments Table */}
+        {document.attachments && document.attachments.length > 0 && (
+          <div className="bg-white border rounded-lg shadow-sm mb-6">
+            <div className="p-4 border-b">
+              <h3 className="text-sm font-medium">Вложения</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-muted/50">
+                  <tr>
+                    <th className="text-left p-3 text-xs font-medium text-muted-foreground">Название</th>
+                    <th className="text-left p-3 text-xs font-medium text-muted-foreground">Размер</th>
+                    <th className="text-right p-3 text-xs font-medium text-muted-foreground">Действия</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {document.attachments.map((attachment: any, index: number) => {
+                    const fileSize = attachment.file_size 
+                      ? `${(attachment.file_size / 1024).toFixed(2)} KB`
+                      : '-'
+                    return (
+                      <tr key={index} className="border-t hover:bg-muted/30">
+                        <td className="p-3">
+                          <div className="flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-muted-foreground" />
+                            <span className="text-sm">{attachment.file_name || `Вложение ${index + 1}`}</span>
+                          </div>
+                        </td>
+                        <td className="p-3 text-sm text-muted-foreground">{fileSize}</td>
+                        <td className="p-3 text-right">
+                          <a
+                            href={attachment.attachment}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-primary hover:underline text-sm"
+                          >
+                            Открыть
+                          </a>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
 
-        {/* Document body */}
-        <div className="bg-white border rounded-lg p-8 shadow-sm">
-          {document.description ? (
-            <div
-              className="prose max-w-none"
-              dangerouslySetInnerHTML={{ __html: document.description }}
-            />
-          ) : (
-            <div className="text-center text-muted-foreground py-12">
-              <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-              <p>{t('documentContent.noContent')}</p>
-            </div>
-          )}
-        </div>
-
-        {/* Signature blocks */}
-        <div className="grid grid-cols-2 gap-8 mt-8">
-          <div>
-            <p className="font-semibold mb-2">{t('documentContent.supplier')}</p>
-            <p className="text-sm text-muted-foreground mb-4">{document.author || t('documentContent.notSpecified')}</p>
-            <div className="border-t pt-2">
-              <p className="text-xs text-muted-foreground">{t('documentContent.signature')}</p>
-            </div>
-          </div>
-          <div>
-            <p className="font-semibold mb-2">{t('documentContent.buyer')}</p>
-            <p className="text-sm text-muted-foreground mb-4">Контрагент</p>
-            <div className="border-t pt-2">
-              <p className="text-xs text-muted-foreground">{t('documentContent.signature')}</p>
-            </div>
-          </div>
-        </div>
 
         {/* Comments */}
         <div className="mt-8 border-t pt-6">

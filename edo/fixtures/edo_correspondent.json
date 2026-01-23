@@ -1,0 +1,14 @@
+[
+ {
+  "doctype": "EDO Correspondent",
+  "name": "ООО \"Тестовая Компания\"",
+  "correspondent_name": "ООО \"Тестовая Компания\"",
+  "correspondent_type": "Юридическое лицо",
+  "organization_name": "Общество с ограниченной ответственностью \"Тестовая Компания\"",
+  "inn": "1234567890",
+  "address": "г. Москва, ул. Тестовая, д. 1",
+  "contact_person": "Иванов Иван Иванович",
+  "phone": "+7 (495) 123-45-67",
+  "email": "info@test-company.ru"
+ }
+]

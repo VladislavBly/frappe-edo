@@ -1,0 +1,44 @@
+[
+ {
+  "doctype": "EDO Priority",
+  "name": "Критический",
+  "priority_name": "Критический",
+  "weight": 100,
+  "description": "Критический приоритет - требует немедленного внимания"
+ },
+ {
+  "doctype": "EDO Priority",
+  "name": "Срочно",
+  "priority_name": "Срочно",
+  "weight": 90,
+  "description": "Срочный документ - высокий приоритет"
+ },
+ {
+  "doctype": "EDO Priority",
+  "name": "Контроль",
+  "priority_name": "Контроль",
+  "weight": 80,
+  "description": "Документ на контроле"
+ },
+ {
+  "doctype": "EDO Priority",
+  "name": "Высокий",
+  "priority_name": "Высокий",
+  "weight": 70,
+  "description": "Высокий приоритет"
+ },
+ {
+  "doctype": "EDO Priority",
+  "name": "Мониторинг",
+  "priority_name": "Мониторинг",
+  "weight": 50,
+  "description": "Документ требует мониторинга"
+ },
+ {
+  "doctype": "EDO Priority",
+  "name": "Стандартный",
+  "priority_name": "Стандартный",
+  "weight": 30,
+  "description": "Стандартный приоритет - обычная обработка"
+ }
+]

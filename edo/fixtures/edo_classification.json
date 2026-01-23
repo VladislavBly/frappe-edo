@@ -1,0 +1,20 @@
+[
+ {
+  "doctype": "EDO Classification",
+  "name": "Открыто",
+  "classification_name": "Открыто",
+  "description": "Открытый доступ к документу"
+ },
+ {
+  "doctype": "EDO Classification",
+  "name": "Конфиденциально",
+  "classification_name": "Конфиденциально",
+  "description": "Конфиденциальная информация, ограниченный доступ"
+ },
+ {
+  "doctype": "EDO Classification",
+  "name": "Секретно",
+  "classification_name": "Секретно",
+  "description": "Секретная информация, строго ограниченный доступ"
+ }
+]

@@ -1,0 +1,44 @@
+[
+ {
+  "doctype": "EDO Document Type",
+  "name": "Письмо",
+  "document_type_name": "Письмо",
+  "description": "Официальное письмо"
+ },
+ {
+  "doctype": "EDO Document Type",
+  "name": "Приказ",
+  "document_type_name": "Приказ",
+  "description": "Распорядительный документ"
+ },
+ {
+  "doctype": "EDO Document Type",
+  "name": "Служебная записка",
+  "document_type_name": "Служебная записка",
+  "description": "Внутренний служебный документ"
+ },
+ {
+  "doctype": "EDO Document Type",
+  "name": "Распоряжение",
+  "document_type_name": "Распоряжение",
+  "description": "Распорядительный документ"
+ },
+ {
+  "doctype": "EDO Document Type",
+  "name": "Протокол",
+  "document_type_name": "Протокол",
+  "description": "Протокол заседания или совещания"
+ },
+ {
+  "doctype": "EDO Document Type",
+  "name": "Акт",
+  "document_type_name": "Акт",
+  "description": "Акт о выполнении работ или событии"
+ },
+ {
+  "doctype": "EDO Document Type",
+  "name": "Отчет",
+  "document_type_name": "Отчет",
+  "description": "Отчетный документ"
+ }
+]

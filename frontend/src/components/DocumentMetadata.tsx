@@ -1,14 +1,7 @@
-import { CheckCircle2, Clock, Download, Printer, History, PenLine } from 'lucide-react'
+import { Download, Printer, History, PenLine } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from './ui/button'
 import type { EDODocument } from '../lib/api'
-
-interface Signer {
-  name: string
-  role: string
-  signed: boolean
-  signedAt?: string
-}
 
 interface DocumentMetadataProps {
   document: EDODocument | null
@@ -21,29 +14,6 @@ export function DocumentMetadata({ document }: DocumentMetadataProps) {
     return null
   }
 
-  // Mock signers data - in real app this would come from API
-  const signers: Signer[] = [
-    {
-      name: 'Иванов Иван Иванович',
-      role: 'Генеральный директор',
-      signed: true,
-      signedAt: '19.01.2026 14:30',
-    },
-    {
-      name: 'Петров Петр Петрович',
-      role: 'Главный бухгалтер',
-      signed: true,
-      signedAt: '19.01.2026 15:45',
-    },
-    {
-      name: 'Сидоров Сидор Сидорович',
-      role: 'Юрисконсульт',
-      signed: false,
-    },
-  ]
-
-  const signedCount = signers.filter((s) => s.signed).length
-  const totalSigners = signers.length
 
   const getStatusColor = (status: string) => {
     if (status === t('documents.status.signed') || status === 'Подписан') {
@@ -78,92 +48,101 @@ export function DocumentMetadata({ document }: DocumentMetadataProps) {
               <p className="font-medium">{document.name}</p>
             </div>
 
+            {document.title && (
+              <div>
+                <p className="text-xs text-muted-foreground">Название</p>
+                <p className="font-medium">{document.title}</p>
+              </div>
+            )}
+
+            {document.incoming_number && (
+              <div>
+                <p className="text-xs text-muted-foreground">Входящий номер</p>
+                <p className="font-medium">{document.incoming_number}</p>
+              </div>
+            )}
+
+            {document.incoming_date && (
+              <div>
+                <p className="text-xs text-muted-foreground">Входящая дата</p>
+                <p className="font-medium">{formatDate(document.incoming_date)}</p>
+              </div>
+            )}
+
+            {document.outgoing_number && (
+              <div>
+                <p className="text-xs text-muted-foreground">Исходящий номер</p>
+                <p className="font-medium">{document.outgoing_number}</p>
+              </div>
+            )}
+
+            {document.outgoing_date && (
+              <div>
+                <p className="text-xs text-muted-foreground">Исходящая дата</p>
+                <p className="font-medium">{formatDate(document.outgoing_date)}</p>
+              </div>
+            )}
+
             {document.document_type && (
               <div>
                 <p className="text-xs text-muted-foreground">{t('documentMetadata.documentType')}</p>
-                <p className="font-medium">{document.document_type}</p>
+                <p className="font-medium">{document.document_type_name || document.document_type}</p>
               </div>
             )}
 
-            {document.document_date && (
+            {document.correspondent && (
               <div>
-                <p className="text-xs text-muted-foreground">{t('documentMetadata.creationDate')}</p>
-                <p className="font-medium">{formatDate(document.document_date)}</p>
+                <p className="text-xs text-muted-foreground">Корреспондент</p>
+                <p className="font-medium">{document.correspondent_name || document.correspondent}</p>
               </div>
             )}
 
-            {document.author && (
+            {document.priority && (
               <div>
-                <p className="text-xs text-muted-foreground">{t('documentMetadata.from')}</p>
-                <p className="font-medium">{document.author}</p>
+                <p className="text-xs text-muted-foreground">Приоритет</p>
+                <p className="font-medium">{document.priority_name || document.priority}</p>
               </div>
             )}
-
-            <div>
-              <p className="text-xs text-muted-foreground">{t('documentMetadata.organization')}</p>
-              <p className="font-medium">АК "Узбектелеком"</p>
-            </div>
 
             <div>
               <p className="text-xs text-muted-foreground">{t('documentMetadata.status')}</p>
               <p className={`font-medium ${getStatusColor(document.status)}`}>
-                {document.status}
+                {document.status_name || document.status}
               </p>
             </div>
-          </div>
-        </div>
 
-        {/* Signing progress */}
-        <div>
-          <h3 className="text-sm font-medium text-muted-foreground mb-3">
-            {t('documentMetadata.signingProgress')}
-          </h3>
-          <p className="text-sm mb-2">{signedCount} {t('common.of')} {totalSigners}</p>
-          <div className="w-full bg-gray-200 rounded-full h-2">
-            <div
-              className="bg-green-500 h-2 rounded-full transition-all"
-              style={{ width: `${(signedCount / totalSigners) * 100}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Signers list */}
-        <div>
-          <h3 className="text-sm font-medium text-muted-foreground mb-3">
-            {t('documentMetadata.signaturesRequired')}
-          </h3>
-          <div className="space-y-3">
-            {signers.map((signer, index) => (
-              <div key={index} className="flex items-start gap-3">
-                <div
-                  className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
-                    signer.signed ? 'bg-green-500' : 'bg-orange-400'
-                  }`}
-                >
-                  {signer.signed ? (
-                    <CheckCircle2 className="w-3 h-3 text-white" />
-                  ) : (
-                    <Clock className="w-3 h-3 text-white" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-sm">{signer.name}</p>
-                  <p className="text-xs text-muted-foreground">{signer.role}</p>
-                  {signer.signed && signer.signedAt && (
-                    <p className="text-xs text-green-600 mt-1">
-                      {t('documentMetadata.signedAt')} {signer.signedAt}
-                    </p>
-                  )}
-                  {!signer.signed && (
-                    <p className="text-xs text-orange-500 mt-1">
-                      {t('documentMetadata.waitingSignature')}
-                    </p>
-                  )}
-                </div>
+            {document.classification && (
+              <div>
+                <p className="text-xs text-muted-foreground">Гриф</p>
+                <p className="font-medium">{document.classification_name || document.classification}</p>
               </div>
-            ))}
+            )}
+
+            {document.delivery_method && (
+              <div>
+                <p className="text-xs text-muted-foreground">Способ доставки</p>
+                <p className="font-medium">{document.delivery_method_name || document.delivery_method}</p>
+              </div>
+            )}
+
+            {document.creation && (
+              <div>
+                <p className="text-xs text-muted-foreground">Дата создания</p>
+                <p className="font-medium">{formatDate(document.creation)}</p>
+              </div>
+            )}
           </div>
         </div>
+
+        {/* Brief content */}
+        {document.brief_content && (
+          <div>
+            <h3 className="text-sm font-medium text-muted-foreground mb-3">
+              Краткое содержание
+            </h3>
+            <p className="text-sm whitespace-pre-wrap">{document.brief_content}</p>
+          </div>
+        )}
 
         {/* Actions */}
         <div>

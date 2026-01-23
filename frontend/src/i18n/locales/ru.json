@@ -70,7 +70,8 @@
   },
   "documentSidebar": {
     "searchPlaceholder": "Поиск документов...",
-    "noDocuments": "Нет документов"
+    "noDocuments": "Нет документов",
+    "addDocument": "Добавить документ"
   },
   "documentContent": {
     "loading": "Загрузка документа...",

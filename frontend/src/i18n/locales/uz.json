@@ -70,7 +70,8 @@
   },
   "documentSidebar": {
     "searchPlaceholder": "Hujjatlarni qidirish...",
-    "noDocuments": "Hujjatlar yo'q"
+    "noDocuments": "Hujjatlar yo'q",
+    "addDocument": "Hujjat qo'shish"
   },
   "documentContent": {
     "loading": "Hujjat yuklanmoqda...",

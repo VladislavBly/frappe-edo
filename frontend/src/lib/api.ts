@@ -1,8 +1,26 @@
 export interface EDODocument {
   name: string
-  title: string
+  incoming_number?: string
+  incoming_date?: string
+  outgoing_number?: string
+  outgoing_date?: string
+  title?: string
+  correspondent?: string
+  correspondent_name?: string
   document_type?: string
+  document_type_name?: string
+  priority?: string
+  priority_name?: string
   status: string
+  status_name?: string
+  brief_content?: string
+  classification?: string
+  classification_name?: string
+  delivery_method?: string
+  delivery_method_name?: string
+  main_document?: string
+  attachments?: any[]
+  // Legacy fields for compatibility
   document_date?: string
   registration_date?: string
   description?: string
@@ -26,6 +44,38 @@ export interface Comment {
   comment_by: string
   creation: string
   owner: string
+}
+
+export interface EDOCorrespondent {
+  name: string
+  correspondent_name: string
+}
+
+export interface EDODocumentType {
+  name: string
+  document_type_name: string
+}
+
+export interface EDOPriority {
+  name: string
+  priority_name: string
+  weight: number
+}
+
+export interface EDOStatus {
+  name: string
+  status_name: string
+  color?: string
+}
+
+export interface EDOClassification {
+  name: string
+  classification_name: string
+}
+
+export interface EDODeliveryMethod {
+  name: string
+  delivery_method_name: string
 }
 
 class FrappeAPI {
@@ -53,8 +103,14 @@ class FrappeAPI {
     return data.message
   }
 
-  async getDocuments(): Promise<EDODocument[]> {
-    return this.call('edo.edo.doctype.edo_document.edo_document.get_portal_documents')
+  async getDocuments(filters?: {
+    search?: string
+    status?: string
+    document_type?: string
+    priority?: string
+    correspondent?: string
+  }): Promise<EDODocument[]> {
+    return this.call('edo.edo.doctype.edo_document.edo_document.get_portal_documents', filters || {})
   }
 
   async getDocument(name: string): Promise<EDODocument> {
@@ -151,7 +207,96 @@ class FrappeAPI {
     })
   }
 
-  private getCSRFToken(): string {
+  async getCorrespondents(): Promise<EDOCorrespondent[]> {
+    const response = await fetch(`${this.baseURL}/api/resource/EDO Correspondent?fields=["name","correspondent_name"]&limit_page_length=999`, {
+      headers: {
+        'X-Frappe-CSRF-Token': this.getCSRFToken(),
+      },
+    })
+    if (!response.ok) throw new Error('Failed to fetch correspondents')
+    const data = await response.json()
+    return data.data
+  }
+
+  async getDocumentTypes(): Promise<EDODocumentType[]> {
+    const response = await fetch(`${this.baseURL}/api/resource/EDO Document Type?fields=["name","document_type_name"]&limit_page_length=999`, {
+      headers: {
+        'X-Frappe-CSRF-Token': this.getCSRFToken(),
+      },
+    })
+    if (!response.ok) throw new Error('Failed to fetch document types')
+    const data = await response.json()
+    return data.data
+  }
+
+  async getPriorities(): Promise<EDOPriority[]> {
+    const response = await fetch(`${this.baseURL}/api/resource/EDO Priority?fields=["name","priority_name","weight"]&limit_page_length=999&order_by=weight desc`, {
+      headers: {
+        'X-Frappe-CSRF-Token': this.getCSRFToken(),
+      },
+    })
+    if (!response.ok) throw new Error('Failed to fetch priorities')
+    const data = await response.json()
+    return data.data
+  }
+
+  async getStatuses(): Promise<EDOStatus[]> {
+    const response = await fetch(`${this.baseURL}/api/resource/EDO Status?fields=["name","status_name","color"]&limit_page_length=999`, {
+      headers: {
+        'X-Frappe-CSRF-Token': this.getCSRFToken(),
+      },
+    })
+    if (!response.ok) throw new Error('Failed to fetch statuses')
+    const data = await response.json()
+    return data.data
+  }
+
+  async getClassifications(): Promise<EDOClassification[]> {
+    const response = await fetch(`${this.baseURL}/api/resource/EDO Classification?fields=["name","classification_name"]&limit_page_length=999`, {
+      headers: {
+        'X-Frappe-CSRF-Token': this.getCSRFToken(),
+      },
+    })
+    if (!response.ok) throw new Error('Failed to fetch classifications')
+    const data = await response.json()
+    return data.data
+  }
+
+  async getDeliveryMethods(): Promise<EDODeliveryMethod[]> {
+    const response = await fetch(`${this.baseURL}/api/resource/EDO Delivery Method?fields=["name","delivery_method_name"]&limit_page_length=999`, {
+      headers: {
+        'X-Frappe-CSRF-Token': this.getCSRFToken(),
+      },
+    })
+    if (!response.ok) throw new Error('Failed to fetch delivery methods')
+    const data = await response.json()
+    return data.data
+  }
+
+  async createDocument(doc: Partial<EDODocument>): Promise<EDODocument> {
+    // Use custom API method instead of direct resource access
+    return this.call('edo.edo.doctype.edo_document.edo_document.create_document', doc)
+  }
+
+  async uploadFile(file: File): Promise<string> {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('is_private', '0')
+
+    const response = await fetch(`${this.baseURL}/api/method/upload_file`, {
+      method: 'POST',
+      headers: {
+        'X-Frappe-CSRF-Token': this.getCSRFToken(),
+      },
+      body: formData,
+    })
+
+    if (!response.ok) throw new Error('Failed to upload file')
+    const data = await response.json()
+    return data.message.file_url
+  }
+
+  getCSRFToken(): string {
     const token = document.cookie
       .split('; ')
       .find(row => row.startsWith('csrf_token='))

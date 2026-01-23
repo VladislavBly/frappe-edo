@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { HashRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -47,7 +47,9 @@ function DocumentsPage({
   onSelectDocument,
   loadingList,
   loadingDocument,
-  error
+  error,
+  onDocumentsRefresh,
+  onFiltersChange
 }: {
   documents: EDODocument[]
   selectedDocument: EDODocument | null
@@ -55,6 +57,14 @@ function DocumentsPage({
   loadingList: boolean
   loadingDocument: boolean
   error: string | null
+  onDocumentsRefresh?: () => void
+  onFiltersChange?: (filters: {
+    search?: string
+    status?: string
+    document_type?: string
+    priority?: string
+    correspondent?: string
+  }) => void
 }) {
   const { t } = useTranslation()
 
@@ -83,6 +93,8 @@ function DocumentsPage({
             onSelectDocument={onSelectDocument}
             loading={loadingList}
             error={error}
+            onDocumentsRefresh={onDocumentsRefresh}
+            onFiltersChange={onFiltersChange}
           />
         </aside>
 
@@ -139,17 +151,24 @@ function AppContent() {
     loadDocuments()
   }, [])
 
-  const loadDocuments = async () => {
+  const loadDocuments = useCallback(async (filters?: {
+    search?: string
+    status?: string
+    document_type?: string
+    priority?: string
+    correspondent?: string
+  }) => {
     try {
       setLoadingList(true)
-      const docs = await api.getDocuments()
+      setError(null)
+      const docs = await api.getDocuments(filters)
       setDocuments(docs)
     } catch (err) {
       setError(err instanceof Error ? err.message : t('documents.loadError'))
     } finally {
       setLoadingList(false)
     }
-  }
+  }, [t])
 
   const handleSelectDocument = async (doc: EDODocument) => {
     // Set document immediately for instant UI update
@@ -206,6 +225,8 @@ function AppContent() {
                   loadingList={loadingList}
                   loadingDocument={loadingDocument}
                   error={error}
+                  onDocumentsRefresh={() => loadDocuments()}
+                  onFiltersChange={loadDocuments}
                 />
               }
             />

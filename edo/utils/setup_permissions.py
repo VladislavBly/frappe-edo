@@ -20,18 +20,26 @@ def setup_admin_permissions():
 	# List of doctypes
 	doctypes = [
 		"EDO Document",
+		"EDO Correspondent",
+		"EDO Document Type",
+		"EDO Priority",
+		"EDO Status",
+		"EDO Classification",
+		"EDO Delivery Method",
+		"EDO Document Attachment",
 		"Comment",
 	]
 	
 	# Permissions for different roles
 	# Admin gets all permissions
+	# Manager gets all permissions except delete
 	# Other roles get read permission
 	role_permissions = {
 		"EDO Admin": ["read", "write", "delete", "submit", "cancel", "amend"],
+		"EDO Manager": ["read", "write", "submit", "cancel", "amend"],
 		"EDO User": ["read"],
 		"EDO Observer": ["read"],
 		"EDO Executor": ["read"],
-		"EDO Manager": ["read"],
 		"EDO Director": ["read"],
 	}
 	

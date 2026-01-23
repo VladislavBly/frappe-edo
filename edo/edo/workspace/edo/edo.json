@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\":\"edo_header\",\"type\":\"header\",\"data\":{\"text\":\"<span style=\\\"font-size: 18px;\\\"><b>Документы</b></span>\",\"col\":12}},{\"id\":\"edo_shortcut_1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"EDO Document\",\"col\":4}}]",
+ "content": "[{\"id\":\"edo_header\",\"type\":\"header\",\"data\":{\"text\":\"<span style=\\\"font-size: 18px;\\\"><b>Документы</b></span>\",\"col\":12}},{\"id\":\"edo_shortcut_1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"EDO Document\",\"col\":4}},{\"id\":\"edo_shortcut_2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"EDO Correspondent\",\"col\":4}},{\"id\":\"edo_shortcut_3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"EDO Document Type\",\"col\":4}},{\"id\":\"edo_header_2\",\"type\":\"header\",\"data\":{\"text\":\"<span style=\\\"font-size: 18px;\\\"><b>Справочники</b></span>\",\"col\":12}},{\"id\":\"edo_shortcut_4\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"EDO Priority\",\"col\":4}},{\"id\":\"edo_shortcut_5\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"EDO Status\",\"col\":4}},{\"id\":\"edo_shortcut_6\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"EDO Classification\",\"col\":4}},{\"id\":\"edo_shortcut_7\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"EDO Delivery Method\",\"col\":4}}]",
  "creation": "2026-01-21 12:00:00.000000",
  "custom_blocks": [],
  "docstatus": 0,
@@ -11,7 +11,71 @@
  "idx": 0,
  "is_hidden": 0,
  "label": "EDO",
- "links": [],
+ "links": [
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Документы",
+   "link_type": "DocType",
+   "link_to": "EDO Document",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Корреспонденты",
+   "link_type": "DocType",
+   "link_to": "EDO Correspondent",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Виды документов",
+   "link_type": "DocType",
+   "link_to": "EDO Document Type",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Приоритеты",
+   "link_type": "DocType",
+   "link_to": "EDO Priority",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Статусы",
+   "link_type": "DocType",
+   "link_to": "EDO Status",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Грифы",
+   "link_type": "DocType",
+   "link_to": "EDO Classification",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Способы доставки",
+   "link_type": "DocType",
+   "link_to": "EDO Delivery Method",
+   "onboard": 0,
+   "type": "Link"
+  }
+ ],
  "modified": "2026-01-21 13:00:00.000000",
  "modified_by": "Administrator",
  "module": "EDO",
@@ -29,6 +93,42 @@
    "doc_view": "List",
    "label": "EDO Document",
    "link_to": "EDO Document",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "label": "EDO Correspondent",
+   "link_to": "EDO Correspondent",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "label": "EDO Document Type",
+   "link_to": "EDO Document Type",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "label": "EDO Priority",
+   "link_to": "EDO Priority",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "label": "EDO Status",
+   "link_to": "EDO Status",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "label": "EDO Classification",
+   "link_to": "EDO Classification",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "label": "EDO Delivery Method",
+   "link_to": "EDO Delivery Method",
    "type": "DocType"
   }
  ],

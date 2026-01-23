@@ -70,7 +70,8 @@
   },
   "documentSidebar": {
     "searchPlaceholder": "Search documents...",
-    "noDocuments": "No documents"
+    "noDocuments": "No documents",
+    "addDocument": "Add Document"
   },
   "documentContent": {
     "loading": "Loading document...",

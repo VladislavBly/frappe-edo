@@ -24,6 +24,19 @@
   "section_break_classification",
   "classification",
   "delivery_method",
+  "section_break_executors",
+  "executor",
+  "column_break_executors",
+  "co_executors",
+  "section_break_director",
+  "director_approved",
+  "director_rejected",
+  "column_break_director",
+  "director_user",
+  "director_decision_date",
+  "director_comment",
+  "section_break_signatures",
+  "signatures",
   "section_break_files",
   "main_document",
   "section_break_attachments",
@@ -91,11 +104,11 @@
   },
   {
    "fieldname": "status",
-   "fieldtype": "Link",
+   "fieldtype": "Select",
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Status",
-   "options": "EDO Status",
+   "options": "Новый\nСогласован\nОтказан\nНа исполнении\nВыполнено\nАрхив",
    "reqd": 1
   },
   {
@@ -155,6 +168,30 @@
    "label": "Classification & Delivery"
   },
   {
+   "fieldname": "section_break_executors",
+   "fieldtype": "Section Break",
+   "label": "Executors"
+  },
+  {
+   "fieldname": "executor",
+   "fieldtype": "Link",
+   "label": "Executor",
+   "options": "User",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "allow_in_quick_entry": 1
+  },
+  {
+   "fieldname": "column_break_executors",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "co_executors",
+   "fieldtype": "Table",
+   "label": "Co-Executors",
+   "options": "EDO Co-Executor"
+  },
+  {
    "fieldname": "section_break_files",
    "fieldtype": "Section Break",
    "label": "Main Document"
@@ -163,11 +200,65 @@
    "fieldname": "section_break_attachments",
    "fieldtype": "Section Break",
    "label": "Additional Attachments"
+  },
+  {
+   "fieldname": "section_break_director",
+   "fieldtype": "Section Break",
+   "label": "Director Approval",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "director_approved",
+   "fieldtype": "Check",
+   "label": "Director Approved",
+   "read_only": 1
+  },
+  {
+   "fieldname": "director_rejected",
+   "fieldtype": "Check",
+   "label": "Director Rejected",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_director",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "director_user",
+   "fieldtype": "Link",
+   "label": "Director",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "director_decision_date",
+   "fieldtype": "Datetime",
+   "label": "Decision Date",
+   "read_only": 1
+  },
+  {
+   "fieldname": "director_comment",
+   "fieldtype": "Small Text",
+   "label": "Director Comment",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_signatures",
+   "fieldtype": "Section Break",
+   "label": "Signatures",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "signatures",
+   "fieldtype": "Table",
+   "label": "Signatures",
+   "options": "EDO Document Signature",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-01-21 12:00:00.000000",
+ "modified": "2026-01-26 12:00:00.000000",
  "modified_by": "Administrator",
  "module": "EDO",
  "name": "EDO Document",
@@ -205,5 +296,7 @@
  "sort_order": "DESC",
  "states": [],
  "title_field": "incoming_number",
- "track_changes": 1
+ "track_changes": 1,
+ "show_preview_popup": 1,
+ "quick_entry": 1
 }

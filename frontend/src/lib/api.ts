@@ -1,3 +1,26 @@
+export interface EDOCoExecutor {
+  name?: string
+  user: string
+  user_full_name?: string
+  user_image?: string
+}
+
+export interface EDOAttachment {
+  name?: string
+  attachment: string
+  file_name: string
+  file_size?: number
+}
+
+export interface EDODocumentSignature {
+  name?: string
+  user: string
+  user_full_name?: string
+  user_image?: string
+  signed_at?: string
+  comment?: string
+}
+
 export interface EDODocument {
   name: string
   incoming_number?: string
@@ -19,7 +42,21 @@ export interface EDODocument {
   delivery_method?: string
   delivery_method_name?: string
   main_document?: string
-  attachments?: any[]
+  attachments?: EDOAttachment[]
+  executor?: string
+  executor_full_name?: string
+  executor_image?: string
+  co_executors?: EDOCoExecutor[]
+  // Director approval fields
+  director_approved?: boolean
+  director_rejected?: boolean
+  director_user?: string
+  director_full_name?: string
+  director_image?: string
+  director_decision_date?: string
+  director_comment?: string
+  // Signatures
+  signatures?: EDODocumentSignature[]
   // Legacy fields for compatibility
   document_date?: string
   registration_date?: string
@@ -273,9 +310,50 @@ class FrappeAPI {
     return data.data
   }
 
+  async getUsers(): Promise<User[]> {
+    return this.call('edo.edo.doctype.edo_document.edo_document.get_users_list')
+  }
+
   async createDocument(doc: Partial<EDODocument>): Promise<EDODocument> {
     // Use custom API method instead of direct resource access
     return this.call('edo.edo.doctype.edo_document.edo_document.create_document', doc)
+  }
+
+  async updateDocument(name: string, doc: Partial<EDODocument>): Promise<EDODocument> {
+    return this.call('edo.edo.doctype.edo_document.edo_document.update_document', { name, ...doc })
+  }
+
+  async canEditDocument(): Promise<boolean> {
+    return this.call('edo.edo.doctype.edo_document.edo_document.can_edit_document')
+  }
+
+  async directorApproveDocument(name: string, comment?: string): Promise<EDODocument> {
+    return this.call('edo.edo.doctype.edo_document.edo_document.director_approve_document', {
+      name,
+      comment,
+    })
+  }
+
+  async directorRejectDocument(name: string, comment?: string): Promise<EDODocument> {
+    return this.call('edo.edo.doctype.edo_document.edo_document.director_reject_document', {
+      name,
+      comment,
+    })
+  }
+
+  async executorSignDocument(name: string, comment?: string): Promise<EDODocument> {
+    return this.call('edo.edo.doctype.edo_document.edo_document.executor_sign_document', {
+      name,
+      comment,
+    })
+  }
+
+  async canDirectorApprove(): Promise<boolean> {
+    return this.call('edo.edo.doctype.edo_document.edo_document.can_director_approve')
+  }
+
+  async canExecutorSign(name: string): Promise<boolean> {
+    return this.call('edo.edo.doctype.edo_document.edo_document.can_executor_sign', { name })
   }
 
   async uploadFile(file: File): Promise<string> {

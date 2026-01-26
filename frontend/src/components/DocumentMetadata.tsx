@@ -1,29 +1,131 @@
-import { Download, Printer, History, PenLine } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Download, Printer, User, Users, Edit, CheckCircle2, XCircle, PenTool } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from './ui/button'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
+import { Textarea } from './ui/textarea'
 import type { EDODocument } from '../lib/api'
+import { api } from '../lib/api'
 
 interface DocumentMetadataProps {
   document: EDODocument | null
+  canEdit?: boolean
+  onEdit?: () => void
+  onDocumentUpdate?: (doc: EDODocument) => void
 }
 
-export function DocumentMetadata({ document }: DocumentMetadataProps) {
+export function DocumentMetadata({ document, canEdit = false, onEdit, onDocumentUpdate }: DocumentMetadataProps) {
   const { t, i18n } = useTranslation()
-  
+  const [canDirectorApprove, setCanDirectorApprove] = useState(false)
+  const [canExecutorSign, setCanExecutorSign] = useState(false)
+  const [approveDialogOpen, setApproveDialogOpen] = useState(false)
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
+  const [signDialogOpen, setSignDialogOpen] = useState(false)
+  const [comment, setComment] = useState('')
+  const [actionLoading, setActionLoading] = useState(false)
+
+  useEffect(() => {
+    if (document) {
+      checkPermissions()
+    }
+  }, [document?.name, document?.status, document?.director_approved, document?.director_rejected])
+
+  const checkPermissions = async () => {
+    if (!document) return
+    try {
+      const [canApprove, canSign] = await Promise.all([
+        api.canDirectorApprove(),
+        api.canExecutorSign(document.name),
+      ])
+      setCanDirectorApprove(canApprove)
+      setCanExecutorSign(canSign)
+      console.log('=== PERMISSIONS DEBUG ===')
+      console.log('canApprove:', canApprove)
+      console.log('canSign:', canSign)
+      console.log('document.status:', document.status)
+      console.log('document.status_name:', document.status_name)
+      console.log('=======================')
+    } catch (err) {
+      console.error('Failed to check permissions:', err)
+    }
+  }
+
+  const handleApprove = async () => {
+    if (!document) return
+    try {
+      setActionLoading(true)
+      await api.directorApproveDocument(document.name, comment)
+      setApproveDialogOpen(false)
+      setComment('')
+      // Force reload document after approval
+      if (onDocumentUpdate) {
+        const updated = await api.getDocument(document.name)
+        onDocumentUpdate(updated)
+      }
+      await checkPermissions()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Ошибка при согласовании')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleReject = async () => {
+    if (!document) return
+    try {
+      setActionLoading(true)
+      await api.directorRejectDocument(document.name, comment)
+      setRejectDialogOpen(false)
+      setComment('')
+      // Force reload document after rejection
+      if (onDocumentUpdate) {
+        const updated = await api.getDocument(document.name)
+        onDocumentUpdate(updated)
+      }
+      await checkPermissions()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Ошибка при отказе')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleSign = async () => {
+    if (!document) return
+    try {
+      setActionLoading(true)
+      await api.executorSignDocument(document.name, comment)
+      setSignDialogOpen(false)
+      setComment('')
+      // Force reload document after signing
+      if (onDocumentUpdate) {
+        const updated = await api.getDocument(document.name)
+        onDocumentUpdate(updated)
+      }
+      await checkPermissions()
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Ошибка при подписании')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
   if (!document) {
     return null
   }
 
-
   const getStatusColor = (status: string) => {
-    if (status === t('documents.status.signed') || status === 'Подписан') {
+    if (status === t('documents.status.signed') || status === 'Подписан' || status === 'Выполнено' || status === 'Согласован') {
       return 'text-green-600'
     }
-    if (status === t('documents.status.pending') || status === 'На подписании') {
+    if (status === t('documents.status.pending') || status === 'На подписании' || status === 'На исполнении') {
       return 'text-orange-500'
     }
     if (status === t('documents.status.archived') || status === 'Архив') {
       return 'text-gray-500'
+    }
+    if (status === 'Отказан') {
+      return 'text-red-600'
     }
     return 'text-gray-500'
   }
@@ -33,8 +135,11 @@ export function DocumentMetadata({ document }: DocumentMetadataProps) {
     return new Date(dateStr).toLocaleDateString(locale)
   }
 
+  const isNewStatus = document.status === 'Новый' || document.status_name === 'Новый'
+  const isInExecution = document.status === 'На исполнении' || document.status_name === 'На исполнении'
+
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto custom-scrollbar">
       <div className="p-4 space-y-6">
         {/* Document info header */}
         <div>
@@ -134,6 +239,61 @@ export function DocumentMetadata({ document }: DocumentMetadataProps) {
           </div>
         </div>
 
+        {/* Executors section */}
+        {(document.executor || (document.co_executors && document.co_executors.length > 0)) && (
+          <div>
+            <h3 className="text-sm font-medium text-muted-foreground mb-3">
+              Исполнители
+            </h3>
+            <div className="space-y-3">
+              {document.executor && (
+                <div className="flex items-center gap-3 p-2 bg-blue-50 rounded-lg">
+                  {document.executor_image ? (
+                    <img
+                      src={document.executor_image}
+                      alt=""
+                      className="w-8 h-8 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
+                      <User className="w-4 h-4 text-white" />
+                    </div>
+                  )}
+                  <div>
+                    <p className="font-medium text-sm">{document.executor_full_name || document.executor}</p>
+                    <p className="text-xs text-blue-600">Исполнитель</p>
+                  </div>
+                </div>
+              )}
+
+              {document.co_executors && document.co_executors.length > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Users className="w-3 h-3" />
+                    Соисполнители ({document.co_executors.length})
+                  </p>
+                  {document.co_executors.map((coExec, index) => (
+                    <div key={index} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
+                      {coExec.user_image ? (
+                        <img
+                          src={coExec.user_image}
+                          alt=""
+                          className="w-7 h-7 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-7 h-7 rounded-full bg-gray-400 flex items-center justify-center">
+                          <User className="w-3 h-3 text-white" />
+                        </div>
+                      )}
+                      <p className="text-sm">{coExec.user_full_name || coExec.user}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Brief content */}
         {document.brief_content && (
           <div>
@@ -144,16 +304,63 @@ export function DocumentMetadata({ document }: DocumentMetadataProps) {
           </div>
         )}
 
+        {/* Director comment */}
+        {document.director_comment && (
+          <div>
+            <h3 className="text-sm font-medium text-muted-foreground mb-3">
+              Комментарий директора
+            </h3>
+            <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
+              <p className="text-sm whitespace-pre-wrap">{document.director_comment}</p>
+            </div>
+          </div>
+        )}
+
         {/* Actions */}
         <div>
           <h3 className="text-sm font-medium text-muted-foreground mb-3">
             {t('documentMetadata.actions')}
           </h3>
           <div className="space-y-2">
-            {(document.status === t('documents.status.pending') || document.status === 'На подписании') && (
-              <Button className="w-full" size="sm">
-                <PenLine className="w-4 h-4" />
-                {t('documentMetadata.sign')}
+            {/* Director approval buttons */}
+            {canDirectorApprove && isNewStatus && (
+              <>
+                <Button 
+                  className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-md" 
+                  size="sm"
+                  onClick={() => setApproveDialogOpen(true)}
+                >
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                  Согласовать
+                </Button>
+                <Button 
+                  variant="destructive" 
+                  className="w-full bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 shadow-md" 
+                  size="sm"
+                  onClick={() => setRejectDialogOpen(true)}
+                >
+                  <XCircle className="w-4 h-4 mr-2" />
+                  Отказать
+                </Button>
+              </>
+            )}
+
+            {/* Executor sign button */}
+            {canExecutorSign && isInExecution && (
+              <Button 
+                className="w-full bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white shadow-md" 
+                size="sm"
+                onClick={() => setSignDialogOpen(true)}
+              >
+                <PenTool className="w-4 h-4 mr-2" />
+                Подписать документ
+              </Button>
+            )}
+
+            {canEdit && (
+              <Button className="w-full bg-blue-600 hover:bg-blue-700" size="sm" onClick={onEdit}>
+                <Edit className="w-4 h-4" />
+                Редактировать
               </Button>
             )}
             <Button variant="outline" className="w-full" size="sm">
@@ -164,13 +371,125 @@ export function DocumentMetadata({ document }: DocumentMetadataProps) {
               <Printer className="w-4 h-4" />
               {t('documentMetadata.print')}
             </Button>
-            <Button variant="outline" className="w-full" size="sm">
-              <History className="w-4 h-4" />
-              {t('documentMetadata.history')}
-            </Button>
           </div>
         </div>
       </div>
+
+      {/* Dialogs */}
+      <Dialog open={approveDialogOpen} onOpenChange={setApproveDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <CheckCircle2 className="w-6 h-6 text-green-600" />
+              Согласовать документ
+            </DialogTitle>
+            <DialogDescription className="text-base pt-2">
+              Вы уверены, что хотите согласовать этот документ? После согласования документ будет отправлен исполнителям.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Комментарий (необязательно)</label>
+              <Textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Введите комментарий..."
+                rows={4}
+                className="resize-none"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setApproveDialogOpen(false)}>
+              Отмена
+            </Button>
+            <Button 
+              onClick={handleApprove} 
+              disabled={actionLoading}
+              className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+            >
+              {actionLoading ? 'Согласование...' : 'Согласовать'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <XCircle className="w-6 h-6 text-red-600" />
+              Отказать в согласовании
+            </DialogTitle>
+            <DialogDescription className="text-base pt-2">
+              Вы уверены, что хотите отказать в согласовании этого документа? После отказа документ не будет отправлен исполнителям.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Причина отказа</label>
+              <Textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Укажите причину отказа..."
+                rows={4}
+                className="resize-none"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>
+              Отмена
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={handleReject} 
+              disabled={actionLoading}
+              className="bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700"
+            >
+              {actionLoading ? 'Отказ...' : 'Отказать'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={signDialogOpen} onOpenChange={setSignDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <PenTool className="w-6 h-6 text-blue-600" />
+              Подписать документ
+            </DialogTitle>
+            <DialogDescription className="text-base pt-2">
+              Подписав документ, вы подтверждаете, что ознакомились с его содержанием и готовы приступить к исполнению.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <label className="text-sm font-medium mb-2 block">Комментарий (необязательно)</label>
+              <Textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Введите комментарий..."
+                rows={4}
+                className="resize-none"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSignDialogOpen(false)}>
+              Отмена
+            </Button>
+            <Button 
+              onClick={handleSign} 
+              disabled={actionLoading}
+              className="bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700"
+            >
+              {actionLoading ? 'Подписание...' : 'Подписать'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

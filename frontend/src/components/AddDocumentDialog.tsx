@@ -25,20 +25,28 @@ import {
   type EDOPriority,
   type EDOClassification,
   type EDODeliveryMethod,
+  type EDOAttachment,
+  type User,
 } from '../lib/api'
 import { AddCorrespondentDialog } from './AddCorrespondentDialog'
+import { UserSelect, UserMultiSelect } from './ui/user-select'
 
 interface AddDocumentDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onDocumentCreated?: (doc: EDODocument) => void
+  editDocument?: EDODocument | null
+  onDocumentUpdated?: (doc: EDODocument) => void
 }
 
 export function AddDocumentDialog({
   open,
   onOpenChange,
   onDocumentCreated,
+  editDocument,
+  onDocumentUpdated,
 }: AddDocumentDialogProps) {
+  const isEditMode = !!editDocument
   const [loading, setLoading] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [showAddCorrespondent, setShowAddCorrespondent] = useState(false)
@@ -57,7 +65,11 @@ export function AddDocumentDialog({
   const [deliveryMethod, setDeliveryMethod] = useState('')
   const [mainDocument, setMainDocument] = useState<File | null>(null)
   const [attachments, setAttachments] = useState<File[]>([])
-  const [notes, setNotes] = useState('')
+  // Existing files for edit mode
+  const [existingMainDocument, setExistingMainDocument] = useState<string | null>(null)
+  const [existingAttachments, setExistingAttachments] = useState<EDOAttachment[]>([])
+  const [executor, setExecutor] = useState('')
+  const [coExecutors, setCoExecutors] = useState<string[]>([])
 
   // Reference data
   const [correspondents, setCorrespondents] = useState<EDOCorrespondent[]>([])
@@ -65,29 +77,52 @@ export function AddDocumentDialog({
   const [priorities, setPriorities] = useState<EDOPriority[]>([])
   const [classifications, setClassifications] = useState<EDOClassification[]>([])
   const [deliveryMethods, setDeliveryMethods] = useState<EDODeliveryMethod[]>([])
+  const [users, setUsers] = useState<User[]>([])
 
   useEffect(() => {
     if (open) {
       loadReferenceData()
-      // Set current date as incoming date
-      setIncomingDate(new Date().toISOString().split('T')[0])
+      if (editDocument) {
+        // Load document data for editing
+        setIncomingNumber(editDocument.incoming_number || '')
+        setIncomingDate(editDocument.incoming_date || '')
+        setOutgoingNumber(editDocument.outgoing_number || '')
+        setOutgoingDate(editDocument.outgoing_date || '')
+        setTitle(editDocument.title || '')
+        setCorrespondent(editDocument.correspondent || '')
+        setDocumentType(editDocument.document_type || '')
+        setPriority(editDocument.priority || '')
+        setBriefContent(editDocument.brief_content || '')
+        setClassification(editDocument.classification || '')
+        setDeliveryMethod(editDocument.delivery_method || '')
+        setExecutor(editDocument.executor || '')
+        setCoExecutors(editDocument.co_executors?.map(c => c.user) || [])
+        // Load existing files
+        setExistingMainDocument(editDocument.main_document || null)
+        setExistingAttachments(editDocument.attachments || [])
+      } else {
+        // Set current date as incoming date for new documents
+        setIncomingDate(new Date().toISOString().split('T')[0])
+      }
     }
-  }, [open])
+  }, [open, editDocument])
 
   const loadReferenceData = async () => {
     try {
-      const [corrs, types, prios, classifs, methods] = await Promise.all([
+      const [corrs, types, prios, classifs, methods, usersList] = await Promise.all([
         api.getCorrespondents(),
         api.getDocumentTypes(),
         api.getPriorities(),
         api.getClassifications(),
         api.getDeliveryMethods(),
+        api.getUsers(),
       ])
       setCorrespondents(corrs)
       setDocumentTypes(types)
       setPriorities(prios)
       setClassifications(classifs)
       setDeliveryMethods(methods)
+      setUsers(usersList)
     } catch (error) {
       console.error('Failed to load reference data:', error)
     }
@@ -110,6 +145,10 @@ export function AddDocumentDialog({
     setAttachments(attachments.filter((_, i) => i !== index))
   }
 
+  const removeExistingAttachment = (index: number) => {
+    setExistingAttachments(existingAttachments.filter((_, i) => i !== index))
+  }
+
   const handleCorrespondentCreated = async (newCorrespondent: EDOCorrespondent) => {
     // Reload correspondents list
     const corrs = await api.getCorrespondents()
@@ -128,14 +167,14 @@ export function AddDocumentDialog({
     try {
       setUploading(true)
 
-      // Upload main document
-      let fileUrl = ''
+      // Upload main document (only if new file selected)
+      let fileUrl = existingMainDocument || ''
       if (mainDocument) {
         fileUrl = await api.uploadFile(mainDocument)
       }
 
-      // Upload attachments
-      const attachmentUrls = []
+      // Upload new attachments
+      const attachmentUrls: EDOAttachment[] = []
       for (const file of attachments) {
         const url = await api.uploadFile(file)
         attachmentUrls.push({
@@ -145,9 +184,12 @@ export function AddDocumentDialog({
         })
       }
 
+      // Keep existing attachments (user may have removed some) and add new ones
+      const allAttachments = [...existingAttachments, ...attachmentUrls]
+
       setUploading(false)
 
-      const newDoc = await api.createDocument({
+      const docData = {
         incoming_number: incomingNumber || undefined,
         incoming_date: incomingDate || undefined,
         outgoing_number: outgoingNumber || undefined,
@@ -160,15 +202,24 @@ export function AddDocumentDialog({
         classification: classification || undefined,
         delivery_method: deliveryMethod || undefined,
         main_document: fileUrl || undefined,
-        attachments: attachmentUrls.length > 0 ? attachmentUrls : undefined,
-      })
+        attachments: allAttachments.length > 0 ? allAttachments : undefined,
+        executor: executor || undefined,
+        co_executors: coExecutors.length > 0 ? coExecutors.map(user => ({ user })) : undefined,
+      }
 
-      onDocumentCreated?.(newDoc)
+      if (isEditMode && editDocument) {
+        const updatedDoc = await api.updateDocument(editDocument.name, docData)
+        onDocumentUpdated?.(updatedDoc)
+      } else {
+        const newDoc = await api.createDocument(docData)
+        onDocumentCreated?.(newDoc)
+      }
+
       resetForm()
       onOpenChange(false)
     } catch (error: any) {
-      console.error('Failed to create document:', error)
-      let errorMessage = 'Ошибка при создании документа'
+      console.error(isEditMode ? 'Failed to update document:' : 'Failed to create document:', error)
+      let errorMessage = isEditMode ? 'Ошибка при обновлении документа' : 'Ошибка при создании документа'
       if (error?.message) {
         errorMessage += ': ' + error.message
       }
@@ -193,15 +244,18 @@ export function AddDocumentDialog({
     setDeliveryMethod('')
     setMainDocument(null)
     setAttachments([])
-    setNotes('')
+    setExecutor('')
+    setCoExecutors([])
+    setExistingMainDocument(null)
+    setExistingAttachments([])
   }
 
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto custom-scrollbar">
         <DialogHeader className="text-left">
-          <DialogTitle className="text-xl">Новый документ</DialogTitle>
+          <DialogTitle className="text-xl">{isEditMode ? 'Редактирование документа' : 'Новый документ'}</DialogTitle>
         </DialogHeader>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -348,6 +402,32 @@ export function AddDocumentDialog({
               </div>
             </div>
 
+            {/* Исполнители */}
+            <div className="space-y-4">
+              <h3 className="text-base font-semibold">Исполнители</h3>
+
+              <div className="space-y-2">
+                <Label>Исполнитель</Label>
+                <UserSelect
+                  users={users}
+                  value={executor}
+                  onChange={setExecutor}
+                  placeholder="Поиск исполнителя..."
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Соисполнители</Label>
+                <UserMultiSelect
+                  users={users}
+                  value={coExecutors}
+                  onChange={setCoExecutors}
+                  excludeUsers={executor ? [executor] : []}
+                  placeholder="Поиск соисполнителей..."
+                />
+              </div>
+            </div>
+
             {/* Дополнительная информация */}
             <div className="space-y-4">
               <h3 className="text-base font-semibold">Дополнительная информация</h3>
@@ -385,17 +465,6 @@ export function AddDocumentDialog({
                   </Select>
                 </div>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="notes">Примечание</Label>
-                <Textarea
-                  id="notes"
-                  placeholder="Дополнительные заметки"
-                  rows={3}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                />
-              </div>
             </div>
           </div>
 
@@ -427,6 +496,27 @@ export function AddDocumentDialog({
                 >
                   Выбрать файл
                 </Button>
+                {/* Show existing main document in edit mode */}
+                {existingMainDocument && !mainDocument && (
+                  <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-green-600 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-green-900 truncate">
+                        {existingMainDocument.split('/').pop()}
+                      </p>
+                      <p className="text-xs text-green-600">Текущий файл</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setExistingMainDocument(null)}
+                      className="text-green-600 hover:text-red-600"
+                      title="Удалить файл"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+                {/* Show newly selected file */}
                 {mainDocument && (
                   <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
                     <FileText className="w-5 h-5 text-blue-600 flex-shrink-0" />
@@ -435,7 +525,7 @@ export function AddDocumentDialog({
                         {mainDocument.name}
                       </p>
                       <p className="text-xs text-blue-600">
-                        {(mainDocument.size / 1024).toFixed(1)} КБ
+                        {(mainDocument.size / 1024).toFixed(1)} КБ (новый)
                       </p>
                     </div>
                     <button
@@ -471,24 +561,56 @@ export function AddDocumentDialog({
                 >
                   Добавить файлы
                 </Button>
+                {/* Existing attachments */}
+                {existingAttachments.length > 0 && (
+                  <div className="space-y-2 mt-2">
+                    <p className="text-xs text-muted-foreground">Текущие вложения:</p>
+                    {existingAttachments.map((att, index) => (
+                      <div
+                        key={`existing-${index}`}
+                        className="p-2 bg-green-50 border border-green-200 rounded flex items-center gap-2"
+                      >
+                        <FileText className="w-4 h-4 text-green-600 flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm text-green-900 truncate">{att.file_name}</p>
+                          {att.file_size && (
+                            <p className="text-xs text-green-600">
+                              {(att.file_size / 1024).toFixed(1)} КБ
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeExistingAttachment(index)}
+                          className="text-green-600 hover:text-red-600"
+                          title="Удалить вложение"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {/* New attachments */}
                 {attachments.length > 0 && (
                   <div className="space-y-2 mt-2">
+                    <p className="text-xs text-muted-foreground">Новые вложения:</p>
                     {attachments.map((file, index) => (
                       <div
                         key={index}
-                        className="p-2 bg-gray-50 border border-gray-200 rounded flex items-center gap-2"
+                        className="p-2 bg-blue-50 border border-blue-200 rounded flex items-center gap-2"
                       >
-                        <FileText className="w-4 h-4 text-gray-600 flex-shrink-0" />
+                        <FileText className="w-4 h-4 text-blue-600 flex-shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-gray-900 truncate">{file.name}</p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-sm text-blue-900 truncate">{file.name}</p>
+                          <p className="text-xs text-blue-600">
                             {(file.size / 1024).toFixed(1)} КБ
                           </p>
                         </div>
                         <button
                           type="button"
                           onClick={() => removeAttachment(index)}
-                          className="text-gray-400 hover:text-red-600"
+                          className="text-blue-600 hover:text-red-600"
                         >
                           <X className="w-4 h-4" />
                         </button>
@@ -541,7 +663,7 @@ export function AddDocumentDialog({
               disabled={loading || uploading}
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
-              {uploading ? 'Загрузка файла...' : loading ? 'Создание...' : 'Зарегистрировать'}
+              {uploading ? 'Загрузка файла...' : loading ? (isEditMode ? 'Сохранение...' : 'Создание...') : (isEditMode ? 'Сохранить' : 'Зарегистрировать')}
             </Button>
           </div>
         </div>

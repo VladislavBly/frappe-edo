@@ -7,21 +7,27 @@
  },
  {
   "doctype": "EDO Status",
-  "name": "На рассмотрении",
-  "status_name": "На рассмотрении",
-  "color": "#F59E0B"
- },
- {
-  "doctype": "EDO Status",
-  "name": "Одобрен",
-  "status_name": "Одобрен",
+  "name": "Согласован",
+  "status_name": "Согласован",
   "color": "#10B981"
  },
  {
   "doctype": "EDO Status",
-  "name": "Отклонен",
-  "status_name": "Отклонен",
+  "name": "Отказан",
+  "status_name": "Отказан",
   "color": "#EF4444"
+ },
+ {
+  "doctype": "EDO Status",
+  "name": "На исполнении",
+  "status_name": "На исполнении",
+  "color": "#F59E0B"
+ },
+ {
+  "doctype": "EDO Status",
+  "name": "Выполнено",
+  "status_name": "Выполнено",
+  "color": "#10B981"
  },
  {
   "doctype": "EDO Status",

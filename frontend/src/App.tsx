@@ -9,6 +9,7 @@ import { DocumentSidebar } from './components/DocumentSidebar'
 import { DocumentContent } from './components/DocumentContent'
 import { DocumentMetadata } from './components/DocumentMetadata'
 import { api, type EDODocument } from './lib/api'
+import { AddDocumentDialog } from './components/AddDocumentDialog'
 
 type Page = 'dashboard' | 'documents'
 
@@ -49,7 +50,9 @@ function DocumentsPage({
   loadingDocument,
   error,
   onDocumentsRefresh,
-  onFiltersChange
+  onFiltersChange,
+  canEdit,
+  onEditDocument
 }: {
   documents: EDODocument[]
   selectedDocument: EDODocument | null
@@ -65,6 +68,8 @@ function DocumentsPage({
     priority?: string
     correspondent?: string
   }) => void
+  canEdit?: boolean
+  onEditDocument?: () => void
 }) {
   const { t } = useTranslation()
 
@@ -126,7 +131,11 @@ function DocumentsPage({
               transition={{ duration: 0.3, ease: "easeInOut" }}
               className="h-full"
             >
-              <DocumentMetadata document={selectedDocument} />
+              <DocumentMetadata
+                document={selectedDocument}
+                canEdit={canEdit}
+                onEdit={onEditDocument}
+              />
             </motion.div>
           </AnimatePresence>
         </aside>
@@ -144,12 +153,24 @@ function AppContent() {
   const [loadingList, setLoadingList] = useState(true)
   const [loadingDocument, setLoadingDocument] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [canEdit, setCanEdit] = useState(false)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
 
   const currentPage: Page = location.pathname.startsWith('/documents') ? 'documents' : 'dashboard'
 
   useEffect(() => {
     loadDocuments()
+    checkEditPermission()
   }, [])
+
+  const checkEditPermission = async () => {
+    try {
+      const result = await api.canEditDocument()
+      setCanEdit(result)
+    } catch (err) {
+      console.error('Failed to check edit permission:', err)
+    }
+  }
 
   const loadDocuments = useCallback(async (filters?: {
     search?: string
@@ -199,6 +220,20 @@ function AppContent() {
     }
   }
 
+  const handleEditDocument = () => {
+    if (selectedDocument) {
+      setEditDialogOpen(true)
+    }
+  }
+
+  const handleDocumentUpdated = async (updatedDoc: EDODocument) => {
+    // Reload full document to get all expanded fields
+    const fullDoc = await api.getDocument(updatedDoc.name)
+    setSelectedDocument(fullDoc)
+    // Refresh documents list
+    loadDocuments()
+  }
+
   return (
     <div className="h-screen flex bg-background">
       <Sidebar currentPage={currentPage} onNavigate={handleNavigate} />
@@ -227,12 +262,22 @@ function AppContent() {
                   error={error}
                   onDocumentsRefresh={() => loadDocuments()}
                   onFiltersChange={loadDocuments}
+                  canEdit={canEdit}
+                  onEditDocument={handleEditDocument}
                 />
               }
             />
           </Routes>
         </AnimatePresence>
       </div>
+
+      {/* Edit Document Dialog */}
+      <AddDocumentDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        editDocument={selectedDocument}
+        onDocumentUpdated={handleDocumentUpdated}
+      />
     </div>
   )
 }

@@ -396,14 +396,32 @@ def create_document(**kwargs):
 	# Frappe will auto-generate unique name based on autoname rule: "format:EDO-{####}"
 	if "name" in kwargs:
 		del kwargs["name"]
+	
+	# Также удаляем другие системные поля, которые не должны передаваться
+	system_fields = ["doctype", "creation", "modified", "owner", "modified_by", "creation", "idx"]
+	for field in system_fields:
+		if field in kwargs:
+			del kwargs[field]
 
 	# Create document - kwargs contains all the document fields
 	# Frappe will auto-generate the name based on autoname rule
-	doc = frappe.get_doc({
-		"doctype": "EDO Document",
-		**kwargs
-	})
-	doc.insert(ignore_permissions=True)
+	try:
+		doc = frappe.get_doc({
+			"doctype": "EDO Document",
+			**kwargs
+		})
+		doc.insert(ignore_permissions=True)
+	except frappe.DuplicateEntryError as e:
+		# Если возникла ошибка дублирования, перегенерируем имя
+		# Это может произойти, если автоименование сгенерировало существующее имя
+		frappe.log_error(
+			f"Duplicate entry: {doc.name}. Regenerating name.",
+			"create_document_duplicate"
+		)
+		# Перегенерируем имя документа
+		doc.name = None
+		doc.set_new_name(force=True)
+		doc.insert(ignore_permissions=True)
 
 	return doc.as_dict()
 
@@ -624,30 +642,872 @@ def can_executor_sign(name):
 
 	try:
 		doc = frappe.get_doc("EDO Document", name)
-		
+
 		# Check if document is in "На исполнении" status
 		if doc.status != "На исполнении":
 			return False
-		
+
 		# Check if user is executor or co-executor
 		is_executor = doc.executor == user
 		is_co_executor = False
-		
+
 		if doc.co_executors:
 			for co_exec in doc.co_executors:
 				if co_exec.user == user:
 					is_co_executor = True
 					break
-		
+
 		if not is_executor and not is_co_executor:
 			return False
-		
+
 		# Check if user already signed
 		if doc.signatures:
 			for sig in doc.signatures:
 				if sig.user == user:
 					return False
-		
+
 		return True
 	except:
 		return False
+
+
+# ==================== STAMP API ====================
+
+@frappe.whitelist()
+def get_stamps():
+	"""Get list of available EDO Stamps"""
+	from urllib.parse import urlparse, unquote, quote
+	from frappe.core.doctype.file.utils import find_file_by_url
+	
+	user = frappe.session.user
+
+	if not user or user == "Guest":
+		return []
+
+	stamps = frappe.get_all(
+		"EDO Stamp",
+		fields=["name", "title", "stamp_image"],
+		order_by="title asc"
+	)
+
+	# Convert relative URLs to full URLs
+	for stamp in stamps:
+		if stamp.get("stamp_image"):
+			image_url = stamp["stamp_image"]
+			
+			# If already a full URL, check if it's an API endpoint
+			if image_url.startswith("http://") or image_url.startswith("https://"):
+				# If it's already an API endpoint, keep it
+				if "/api/method/" in image_url:
+					continue
+				# Otherwise, check if it's a private file URL that needs conversion
+				if "/private/files/" in image_url:
+					# Extract file path from URL
+					from urllib.parse import urlparse, unquote, quote
+					parsed = urlparse(image_url)
+					file_path = unquote(parsed.path)
+					# Use API endpoint for private files
+					api_url = f"/api/method/edo.edo.doctype.edo_document.edo_document.get_stamp_image?file_url={quote(file_path, safe='')}"
+					stamp["stamp_image"] = frappe.utils.get_url(api_url, full_address=True)
+				continue
+			
+			# Ensure URL starts with /
+			if not image_url.startswith("/"):
+				image_url = "/" + image_url
+			
+			# Get the file doc to check if it's private and get proper URL
+			try:
+				# Try to find file by file_url
+				from frappe.core.doctype.file.utils import find_file_by_url
+				file = find_file_by_url(image_url)
+				
+				if file:
+					if file.is_private:
+						# For private files, use API endpoint with authentication
+						# This ensures proper permission checking
+						from urllib.parse import quote
+						api_url = f"/api/method/edo.edo.doctype.edo_document.edo_document.get_stamp_image?file_url={quote(image_url, safe='')}"
+						full_url = frappe.utils.get_url(api_url, full_address=True)
+						stamp["stamp_image"] = full_url
+					else:
+						# For public files, use direct URL with full address
+						full_url = frappe.utils.get_url(image_url, full_address=True)
+						stamp["stamp_image"] = full_url
+				else:
+					# File not found, check if it's a private path
+					if "/private/files/" in image_url or image_url.startswith("/private/"):
+						# Use API endpoint for private files even if file doc not found
+						from urllib.parse import quote
+						api_url = f"/api/method/edo.edo.doctype.edo_document.edo_document.get_stamp_image?file_url={quote(image_url, safe='')}"
+						full_url = frappe.utils.get_url(api_url, full_address=True)
+						stamp["stamp_image"] = full_url
+					else:
+						# Try to get full URL anyway
+						full_url = frappe.utils.get_url(image_url, full_address=True)
+						stamp["stamp_image"] = full_url
+			except Exception as e:
+				# Fallback: if it looks like a private file, use API endpoint
+				frappe.log_error(f"Error processing stamp image URL: {image_url}, Error: {str(e)}", "get_stamps")
+				try:
+					if "/private/files/" in image_url or image_url.startswith("/private/"):
+						# Use API endpoint for private files
+						from urllib.parse import quote
+						api_url = f"/api/method/edo.edo.doctype.edo_document.edo_document.get_stamp_image?file_url={quote(image_url, safe='')}"
+						full_url = frappe.utils.get_url(api_url, full_address=True)
+						stamp["stamp_image"] = full_url
+					else:
+						full_url = frappe.utils.get_url(image_url, full_address=True)
+						stamp["stamp_image"] = full_url
+				except:
+					# Last resort: use relative URL
+					stamp["stamp_image"] = image_url
+
+	return stamps
+
+
+@frappe.whitelist()
+def get_stamp_image(file_url: str):
+	"""Get stamp image with proper authentication"""
+	from frappe.core.doctype.file.utils import find_file_by_url
+	import mimetypes
+	
+	user = frappe.session.user
+	if not user or user == "Guest":
+		frappe.throw("Not authorized", frappe.PermissionError)
+	
+	# Decode the URL
+	from urllib.parse import unquote
+	file_url = unquote(file_url)
+	
+	# Log for debugging
+	frappe.log_error(f"get_stamp_image called with file_url: {file_url}, user: {user}", "get_stamp_image")
+	
+	# Find the file
+	file = find_file_by_url(file_url)
+	if not file:
+		# Try alternative search methods
+		# Search by file_url in File doctype
+		file_doc = frappe.db.get_value("File", {"file_url": file_url}, "name")
+		if file_doc:
+			file = frappe.get_doc("File", file_doc)
+		else:
+			frappe.log_error(f"File not found for URL: {file_url}", "get_stamp_image")
+			frappe.throw("File not found", frappe.NotFound)
+	
+	# Check permissions - use has_permission method
+	try:
+		if not file.has_permission("read"):
+			frappe.throw("You don't have permission to access this file", frappe.PermissionError)
+	except:
+		# If has_permission doesn't work, check manually
+		from frappe.permissions import has_permission
+		if not has_permission("File", doc=file, user=user):
+			frappe.throw("You don't have permission to access this file", frappe.PermissionError)
+	
+	# Get file content
+	content = file.get_content()
+	
+	# Determine content type
+	content_type = mimetypes.guess_type(file.file_name)[0] or "image/png"
+	
+	# Use Frappe's standard way to return file content
+	frappe.local.response.filename = file.file_name
+	frappe.local.response.filecontent = content
+	frappe.local.response.type = "binary"
+	frappe.local.response.headers["Content-Type"] = content_type
+	frappe.local.response.headers["Cache-Control"] = "public, max-age=3600"
+	frappe.local.response.headers["Content-Disposition"] = f'inline; filename="{file.file_name}"'
+
+
+@frappe.whitelist()
+def get_pdf_info(document_name):
+	"""Get PDF metadata (page count, dimensions) for a document"""
+	import io
+	from pypdf import PdfReader
+
+	user = frappe.session.user
+	if not user or user == "Guest":
+		frappe.throw("Not authorized", frappe.PermissionError)
+
+	# Get document
+	doc = frappe.get_doc("EDO Document", document_name)
+
+	if not doc.main_document:
+		frappe.throw("Document has no PDF attached")
+
+	# Get file path
+	file_path = get_file_path(doc.main_document)
+
+	if not file_path or not file_path.lower().endswith('.pdf'):
+		frappe.throw("Main document is not a PDF file")
+
+	# Read PDF
+	with open(file_path, 'rb') as f:
+		pdf_reader = PdfReader(f)
+		page_count = len(pdf_reader.pages)
+
+		pages = []
+		for page in pdf_reader.pages:
+			media_box = page.mediabox
+			# Convert from points to pixels (assuming 72 DPI)
+			width = float(media_box.width)
+			height = float(media_box.height)
+			pages.append({
+				"width": width,
+				"height": height
+			})
+
+	return {
+		"page_count": page_count,
+		"pages": pages
+	}
+
+
+@frappe.whitelist()
+def apply_stamps_to_pdf(document_name, stamps):
+	"""
+	Apply multiple stamps to PDF document.
+
+	Args:
+		document_name: Name of EDO Document
+		stamps: JSON list of stamps to apply
+			[{
+				"stamp_name": "STAMP-0001",
+				"page_number": 0,  # 0-indexed
+				"position": "bottom-right" | "top-left" | ... | "custom",
+				"x": 100,  # Only for custom position
+				"y": 100,  # Only for custom position
+				"scale": 1.0
+			}, ...]
+
+	Returns:
+		{success: True, new_file_url: "...", message: "..."}
+	"""
+	import io
+	import json
+	import os
+	import traceback
+	from pypdf import PdfReader, PdfWriter
+	from reportlab.pdfgen import canvas
+	from reportlab.lib.utils import ImageReader
+	from PIL import Image
+
+	try:
+		user = frappe.session.user
+		if not user or user == "Guest":
+			frappe.throw("Not authorized", frappe.PermissionError)
+
+		# Check permission
+		user_roles = frappe.get_roles(user)
+		can_stamp = any(role in user_roles for role in ["EDO Admin", "EDO Manager", "EDO Director"])
+		if not can_stamp:
+			frappe.throw("You don't have permission to apply stamps", frappe.PermissionError)
+
+		# Parse stamps if string
+		if isinstance(stamps, str):
+			try:
+				stamps = json.loads(stamps)
+			except json.JSONDecodeError as e:
+				frappe.log_error(f"Failed to parse stamps JSON: {stamps}, Error: {str(e)}", "apply_stamps_json_error")
+				frappe.throw(f"Invalid stamps format: {str(e)}", frappe.ValidationError)
+
+		if not stamps:
+			frappe.throw("No stamps provided", frappe.ValidationError)
+
+		if not isinstance(stamps, list):
+			frappe.throw("Stamps must be a list", frappe.ValidationError)
+
+		# Get document
+		try:
+			doc = frappe.get_doc("EDO Document", document_name)
+		except Exception as e:
+			frappe.log_error(f"Failed to get document {document_name}: {str(e)}\n{traceback.format_exc()}", "apply_stamps_doc_error")
+			frappe.throw(f"Document not found: {document_name}", frappe.NotFound)
+
+		if not doc.main_document:
+			frappe.throw("Document has no PDF attached", frappe.ValidationError)
+
+		# Get PDF file path
+		# Важно: main_document может быть уже штампованным файлом, это нормально
+		pdf_path = get_file_path(doc.main_document)
+
+		if not pdf_path or not pdf_path.lower().endswith('.pdf'):
+			frappe.log_error(
+				f"Invalid PDF path for document {document_name}: main_document={doc.main_document}, "
+				f"resolved_path={pdf_path}",
+				"apply_stamps_path_error"
+			)
+			frappe.throw("Main document is not a PDF file", frappe.ValidationError)
+
+		if not os.path.exists(pdf_path):
+			frappe.log_error(
+				f"PDF file not found at path: {pdf_path} for document {document_name}, "
+				f"main_document={doc.main_document}",
+				"apply_stamps_file_error"
+			)
+			frappe.throw(f"PDF file not found: {pdf_path}", frappe.NotFound)
+		
+
+		# Read original PDF
+		try:
+			with open(pdf_path, 'rb') as f:
+				original_pdf_bytes = f.read()
+		except Exception as e:
+			frappe.log_error(f"Failed to read PDF file {pdf_path}: {str(e)}\n{traceback.format_exc()}", "apply_stamps_read_error")
+			frappe.throw(f"Failed to read PDF file: {str(e)}", frappe.ValidationError)
+
+		try:
+			pdf_reader = PdfReader(io.BytesIO(original_pdf_bytes))
+		except Exception as e:
+			frappe.log_error(f"Failed to parse PDF: {str(e)}\n{traceback.format_exc()}", "apply_stamps_parse_error")
+			frappe.throw(f"Invalid PDF file: {str(e)}", frappe.ValidationError)
+
+		pdf_writer = PdfWriter()
+
+		# Group stamps by page
+		stamps_by_page = {}
+		for stamp_info in stamps:
+			if not isinstance(stamp_info, dict):
+				frappe.log_error(f"Invalid stamp_info type: {type(stamp_info)}, value: {stamp_info}", "apply_stamps_validation")
+				continue
+			
+			page_num = stamp_info.get("page_number", 0)
+			if not isinstance(page_num, int) or page_num < 0:
+				frappe.log_error(f"Invalid page_number: {page_num} in stamp {stamp_info}", "apply_stamps_validation")
+				continue
+			
+			if page_num not in stamps_by_page:
+				stamps_by_page[page_num] = []
+			stamps_by_page[page_num].append(stamp_info)
+
+		# Process each page
+		total_stamps_to_apply = sum(len(stamps) for stamps in stamps_by_page.values())
+		stamps_applied_count = 0
+		
+		for page_idx, page in enumerate(pdf_reader.pages):
+			if page_idx in stamps_by_page:
+				# Apply stamps to this page
+				try:
+					stamped_page, page_stamps_applied = apply_stamps_to_page(page, stamps_by_page[page_idx])
+					pdf_writer.add_page(stamped_page)
+					stamps_applied_count += page_stamps_applied
+					
+					# Логируем результат применения штампов к странице
+					if page_stamps_applied > 0:
+						frappe.log_error(
+							f"Applied {page_stamps_applied} stamps to page {page_idx}",
+							"apply_stamps_page_success"
+						)
+					else:
+						frappe.log_error(
+							f"No stamps applied to page {page_idx}. Total stamps for page: {len(stamps_by_page[page_idx])}",
+							"apply_stamps_page_no_stamps"
+						)
+				except Exception as e:
+					frappe.log_error(
+						f"Failed to apply stamps to page {page_idx}: {str(e)}\n{traceback.format_exc()}\nStamps: {stamps_by_page[page_idx]}",
+						"apply_stamps_page_error"
+					)
+					# Fallback: add page without stamps
+					pdf_writer.add_page(page)
+			else:
+				pdf_writer.add_page(page)
+		
+		# Проверяем, что хотя бы один штамп был применен
+		if total_stamps_to_apply > 0 and stamps_applied_count == 0:
+			# Логируем детальную информацию о том, почему штампы не были применены
+			error_details = []
+			for page_idx, stamps in stamps_by_page.items():
+				error_details.append(f"Page {page_idx}: {len(stamps)} stamps")
+			
+			# Пытаемся получить последние ошибки из Error Log для более детального сообщения
+			try:
+				recent_errors = frappe.get_all(
+					"Error Log",
+					filters={
+						"method": ["in", ["stamp_file_error", "stamp_load_error", "stamp_validation", "stamp_image_error", "stamp_draw_error", "stamp_position_error"]],
+						"creation": [">", frappe.utils.add_to_date(frappe.utils.now(), minutes=-5)]
+					},
+					fields=["method", "error"],
+					order_by="creation desc",
+					limit=3
+				)
+				error_hints = []
+				for err in recent_errors:
+					# Берем первую строку ошибки для краткости
+					error_first_line = err.error.split('\n')[0] if err.error else ""
+					if error_first_line:
+						error_hints.append(f"{err.method}: {error_first_line[:100]}")
+			except:
+				error_hints = []
+			
+			error_msg = (
+				f"Не удалось применить штампы к документу. Всего штампов: {total_stamps_to_apply}, применено: {stamps_applied_count}. "
+				f"Страницы со штампами: {', '.join(error_details)}. "
+			)
+			if error_hints:
+				error_msg += f"Последние ошибки: {'; '.join(error_hints)}. "
+			error_msg += "Проверьте Error Log для деталей (ищите ошибки с типами stamp_file_error, stamp_load_error, stamp_validation, stamp_image_error, stamp_draw_error)."
+			
+			frappe.log_error(
+				f"No stamps applied. Total: {total_stamps_to_apply}, Applied: {stamps_applied_count}. "
+				f"Pages with stamps: {', '.join(error_details)}. "
+				f"Check Error Log for stamp_* errors.",
+				"apply_stamps_no_stamps_applied"
+			)
+			frappe.throw(error_msg, frappe.ValidationError)
+
+		# Write to bytes
+		try:
+			output = io.BytesIO()
+			pdf_writer.write(output)
+			output_bytes = output.getvalue()
+			
+			# Проверяем, что файл не пустой
+			if not output_bytes or len(output_bytes) == 0:
+				frappe.log_error("Stamped PDF is empty", "apply_stamps_empty_pdf")
+				frappe.throw("Не удалось создать PDF со штампом: файл пуст", frappe.ValidationError)
+			
+			# Проверяем, что это действительно PDF (должен начинаться с %PDF)
+			if not output_bytes.startswith(b'%PDF'):
+				frappe.log_error(f"Stamped PDF is not a valid PDF. First bytes: {output_bytes[:20]}", "apply_stamps_invalid_pdf")
+				frappe.throw("Созданный файл не является валидным PDF", frappe.ValidationError)
+		except Exception as e:
+			frappe.log_error(f"Failed to write PDF: {str(e)}\n{traceback.format_exc()}", "apply_stamps_write_error")
+			frappe.throw(f"Failed to create stamped PDF: {str(e)}", frappe.ValidationError)
+
+		# Generate unique filenames using content hash to avoid conflicts
+		from frappe.core.doctype.file.utils import get_content_hash
+		
+		original_filename = os.path.basename(pdf_path)
+		name_without_ext = os.path.splitext(original_filename)[0]
+		
+		# Читаем оригинальный контент для расчета хэша
+		with open(pdf_path, 'rb') as f:
+			original_content = f.read()
+		
+		# Используем хэш содержимого для уникальности имен файлов
+		# Для оригинального файла
+		original_content_hash = get_content_hash(original_content)
+		original_hash_suffix = original_content_hash[-8:]  # Последние 8 символов хэша
+		original_backup_filename = f"{name_without_ext}_original_{original_hash_suffix}.pdf"
+		
+		# Для файла со штампом
+		stamped_content_hash = get_content_hash(output_bytes)
+		stamped_hash_suffix = stamped_content_hash[-8:]  # Последние 8 символов хэша
+		stamped_filename = f"{name_without_ext}_stamped_{stamped_hash_suffix}.pdf"
+		
+		# Удаляем старые файлы со штампами из attachments, чтобы избежать конфликтов
+		# Ищем файлы, которые заканчиваются на _stamped.pdf или _original.pdf
+		if doc.attachments:
+			stamped_files_to_remove = []
+			for att in doc.attachments:
+				att_file_name = att.get("file_name", "")
+				att_file_url = att.get("attachment", "")
+				# Проверяем, является ли это старым файлом со штампом или backup
+				if att_file_name and (
+					att_file_name.endswith("_stamped.pdf") or 
+					att_file_name.endswith("_original.pdf") or
+					"_stamped_" in att_file_name or
+					"_original_" in att_file_name
+				):
+					# Находим File документ и удаляем его
+					try:
+						file_doc = frappe.db.get_value("File", {"file_url": att_file_url}, "name")
+						if file_doc:
+							stamped_files_to_remove.append((att_file_name, file_doc))
+					except:
+						pass
+			
+			# Удаляем старые файлы
+			if stamped_files_to_remove:
+				# Удаляем из attachments
+				for file_name, file_doc_name in stamped_files_to_remove:
+					try:
+						# Удаляем запись из child table
+						attachments_to_keep = [
+							a for a in doc.attachments 
+							if a.get("file_name") != file_name and a.get("attachment") != file_doc_name
+						]
+						doc.set("attachments", attachments_to_keep)
+						
+						# Удаляем File документ (физически удаляем только если он не используется где-то еще)
+						try:
+							frappe.delete_doc("File", file_doc_name, force=1, ignore_permissions=True)
+						except Exception as del_e:
+							# Если файл используется где-то еще, просто пропускаем
+							frappe.log_error(f"Could not delete file {file_doc_name}: {str(del_e)}", "apply_stamps_cleanup")
+					except Exception as e:
+						frappe.log_error(f"Failed to remove old stamped file {file_name}: {str(e)}", "apply_stamps_cleanup")
+
+		# Save original to attachments (backup)
+		# original_content уже прочитан выше для расчета хэша
+		try:
+			original_backup_file = frappe.get_doc({
+				"doctype": "File",
+				"file_name": original_backup_filename,
+				"content": original_content,
+				"attached_to_doctype": "EDO Document",
+				"attached_to_name": document_name,
+				"is_private": 1
+			})
+			original_backup_file.save(ignore_permissions=True)
+
+			# Add original to attachments child table
+			# Используем file_url для attachment поля
+			doc.append("attachments", {
+				"attachment": original_backup_file.file_url,
+				"file_name": original_backup_filename
+			})
+			
+			# Сохраняем документ, чтобы attachments были сохранены
+			doc.save(ignore_permissions=True)
+		except Exception as e:
+			frappe.log_error(f"Failed to save backup: {str(e)}\n{traceback.format_exc()}", "apply_stamps_backup_error")
+			# Continue even if backup fails
+
+		# Save stamped version as new main document
+		try:
+			# Перезагружаем документ, чтобы получить актуальные данные
+			doc.reload()
+			
+			stamped_file = frappe.get_doc({
+				"doctype": "File",
+				"file_name": stamped_filename,
+				"content": output_bytes,
+				"attached_to_doctype": "EDO Document",
+				"attached_to_name": document_name,
+				"is_private": 1
+			})
+			stamped_file.save(ignore_permissions=True)
+			
+			# Проверяем, что файл действительно создан и доступен
+			stamped_file_path = get_file_path(stamped_file.file_url)
+			if not stamped_file_path or not os.path.exists(stamped_file_path):
+				frappe.log_error(
+					f"Stamped file not found after save. URL: {stamped_file.file_url}, Path: {stamped_file_path}",
+					"apply_stamps_file_not_found"
+				)
+				frappe.throw("Файл со штампом не был создан", frappe.ValidationError)
+			
+			# Проверяем размер файла
+			file_size = os.path.getsize(stamped_file_path)
+			if file_size == 0:
+				frappe.log_error(f"Stamped file is empty. Path: {stamped_file_path}", "apply_stamps_empty_file")
+				frappe.throw("Файл со штампом пуст", frappe.ValidationError)
+			
+			# Replace main_document with stamped version
+			old_main_document = doc.main_document
+			
+			# Если старый main_document был файлом со штампом, удаляем его из attachments
+			# (но не удаляем сам файл, так как он может быть нужен для истории)
+			if old_main_document and ("_stamped" in old_main_document or "_stamped_" in old_main_document):
+				# Удаляем старый файл со штампом из attachments, если он там есть
+				if doc.attachments:
+					attachments_to_keep = [
+						a for a in doc.attachments 
+						if a.get("attachment") != old_main_document
+					]
+					doc.set("attachments", attachments_to_keep)
+			
+			# Обновляем main_document на новый файл со штампом
+			doc.main_document = stamped_file.file_url
+			doc.save(ignore_permissions=True)
+			
+			# Логируем только краткую информацию (Title ограничен 140 символами)
+			# Сокращаем сообщение, чтобы не превысить лимит
+			short_msg = f"Stamps applied. Doc: {document_name[:30]}, File: {stamped_file.name[:30]}"
+			frappe.log_error(short_msg, "apply_stamps_success")
+			
+			# Обновляем документ в базе данных, чтобы изменения были видны сразу
+			frappe.db.commit()
+		except Exception as e:
+			# Сокращаем сообщение для title (ограничение 140 символов)
+			error_msg = str(e)
+			short_error = error_msg[:100] if len(error_msg) > 100 else error_msg
+			frappe.log_error(
+				f"Failed to save stamped file: {short_error}\n{traceback.format_exc()}",
+				"apply_stamps_save_error"
+			)
+			frappe.throw(f"Failed to save stamped PDF: {error_msg}", frappe.ValidationError)
+
+		return {
+			"success": True,
+			"new_file_url": stamped_file.file_url,
+			"message": f"Штамп применён. Оригинал сохранён в вложениях."
+		}
+	except frappe.PermissionError:
+		raise
+	except frappe.NotFound:
+		raise
+	except frappe.ValidationError:
+		raise
+	except Exception as e:
+		# Log all other errors
+		frappe.log_error(
+			f"Unexpected error in apply_stamps_to_pdf: {str(e)}\n{traceback.format_exc()}\n"
+			f"document_name: {document_name}, stamps: {stamps}",
+			"apply_stamps_unexpected_error"
+		)
+		frappe.throw(f"Failed to apply stamps: {str(e)}", frappe.ValidationError)
+
+
+def apply_stamps_to_page(page, stamps_info):
+	"""Apply multiple stamps to a single PDF page"""
+	import io
+	import os
+	import traceback
+	from pypdf import PdfReader
+	from reportlab.pdfgen import canvas
+	from reportlab.lib.utils import ImageReader
+	from PIL import Image
+
+	# Get page dimensions
+	media_box = page.mediabox
+	page_width = float(media_box.width)
+	page_height = float(media_box.height)
+
+	# Create overlay with stamps
+	packet = io.BytesIO()
+	c = canvas.Canvas(packet, pagesize=(page_width, page_height))
+	
+	# Счетчик успешно примененных штампов
+	stamps_applied = 0
+	# Список ошибок для детального логирования
+	errors = []
+	
+	# Логируем начало обработки штампов для отладки
+	frappe.log_error(
+		f"Starting to apply {len(stamps_info)} stamps to page {page_width:.2f}x{page_height:.2f}",
+		"stamp_apply_start"
+	)
+
+	for stamp_info in stamps_info:
+		try:
+			stamp_name = stamp_info.get("stamp_name")
+			if not stamp_name:
+				error_msg = f"Missing stamp_name in stamp_info: {stamp_info}"
+				frappe.log_error(error_msg, "stamp_validation")
+				errors.append(error_msg)
+				continue
+			
+			position = stamp_info.get("position", "bottom-right")
+			try:
+				# По умолчанию масштаб 0.15 (15% от оригинального размера) для меньших штампов
+				scale = float(stamp_info.get("scale", 0.15))
+			except (ValueError, TypeError):
+				error_msg = f"Invalid scale value: {stamp_info.get('scale')} for stamp {stamp_name}"
+				frappe.log_error(error_msg, "stamp_validation")
+				errors.append(error_msg)
+				scale = 0.15  # Fallback на 15% если значение невалидно
+			
+			custom_x = stamp_info.get("x")
+			custom_y = stamp_info.get("y")
+
+			# Get stamp image path
+			try:
+				stamp_doc = frappe.get_doc("EDO Stamp", stamp_name)
+			except Exception as e:
+				error_msg = f"Failed to get stamp {stamp_name}: {str(e)}"
+				frappe.log_error(error_msg, "stamp_load_error")
+				errors.append(error_msg)
+				continue
+			
+			if not stamp_doc.stamp_image:
+				error_msg = f"Stamp {stamp_name} has no image"
+				frappe.log_error(error_msg, "stamp_validation")
+				errors.append(error_msg)
+				continue
+
+			stamp_image_path = get_file_path(stamp_doc.stamp_image)
+			if not stamp_image_path:
+				error_msg = f"Stamp image path is None for stamp {stamp_name} (stamp_image URL: {stamp_doc.stamp_image})"
+				frappe.log_error(error_msg, "stamp_file_error")
+				errors.append(error_msg)
+				continue
+			
+			if not os.path.exists(stamp_image_path):
+				error_msg = f"Stamp image not found at path: {stamp_image_path} for stamp {stamp_name} (stamp_image URL: {stamp_doc.stamp_image})"
+				frappe.log_error(error_msg, "stamp_file_error")
+				errors.append(error_msg)
+				continue
+
+			# Load stamp image
+			try:
+				stamp_img = Image.open(stamp_image_path)
+			except Exception as e:
+				error_msg = f"Failed to open stamp image {stamp_image_path}: {str(e)}"
+				frappe.log_error(error_msg, "stamp_image_error")
+				errors.append(error_msg)
+				continue
+
+			# Handle transparency - convert to RGBA if needed
+			if stamp_img.mode != 'RGBA':
+				stamp_img = stamp_img.convert('RGBA')
+
+			stamp_w, stamp_h = stamp_img.size
+			scaled_w = stamp_w * scale
+			scaled_h = stamp_h * scale
+
+			# Validate scaled size
+			if scaled_w <= 0 or scaled_h <= 0:
+				error_msg = f"Invalid stamp size: {scaled_w}x{scaled_h} (original: {stamp_w}x{stamp_h}, scale: {scale}) for stamp {stamp_name}"
+				frappe.log_error(error_msg, "stamp_size_error")
+				errors.append(error_msg)
+				continue
+
+			# Calculate position
+			try:
+				x, y = calculate_stamp_position(
+					page_width, page_height,
+					scaled_w, scaled_h,
+					position, custom_x, custom_y
+				)
+			except Exception as e:
+				error_msg = f"Failed to calculate position for stamp {stamp_name}: {str(e)} (position={position}, custom_x={custom_x}, custom_y={custom_y})"
+				frappe.log_error(error_msg, "stamp_position_error")
+				errors.append(error_msg)
+				continue
+
+			# Draw stamp on canvas with transparency support
+			try:
+				c.drawImage(
+					ImageReader(stamp_img),
+					x, y,
+					width=scaled_w,
+					height=scaled_h,
+					mask='auto'
+				)
+				stamps_applied += 1
+				# Логируем успешное применение штампа для отладки
+				frappe.log_error(
+					f"Stamp {stamp_name} drawn at ({x:.2f}, {y:.2f}) size ({scaled_w:.2f}, {scaled_h:.2f})",
+					"stamp_draw_success"
+				)
+			except Exception as e:
+				error_msg = f"Failed to draw stamp {stamp_name} at ({x}, {y}) size ({scaled_w}, {scaled_h}): {str(e)}"
+				frappe.log_error(f"{error_msg}\n{traceback.format_exc()}", "stamp_draw_error")
+				errors.append(error_msg)
+				continue
+		except Exception as e:
+			error_msg = f"Unexpected error processing stamp {stamp_info}: {str(e)}"
+			frappe.log_error(f"{error_msg}\n{traceback.format_exc()}", "stamp_process_error")
+			errors.append(error_msg)
+			continue
+
+	# Сохраняем canvas и применяем штампы только если были применены штампы
+	if stamps_applied > 0:
+		c.save()
+		packet.seek(0)
+
+		# Merge overlay with original page
+		try:
+			overlay_reader = PdfReader(packet)
+			if overlay_reader.pages:
+				page.merge_page(overlay_reader.pages[0])
+				# Логируем успешный merge для отладки
+				frappe.log_error(
+					f"Successfully merged {stamps_applied} stamps to page. Returning page with {stamps_applied} stamps applied.",
+					"stamp_merge_success"
+				)
+				return page, stamps_applied
+			else:
+				frappe.log_error(
+					f"Overlay PDF has no pages after applying {stamps_applied} stamps. Packet size: {len(packet.getvalue())}",
+					"stamp_merge_no_pages"
+				)
+				# Если overlay пустой, возвращаем оригинальную страницу без штампов
+				# но не выбрасываем исключение - пусть вызывающий код решает
+				return page, 0
+		except Exception as e:
+			frappe.log_error(
+				f"Failed to merge stamp overlay: {str(e)}\n{traceback.format_exc()}\n"
+				f"Stamps applied: {stamps_applied}, Total: {len(stamps_info)}, Packet size: {len(packet.getvalue()) if packet else 0}",
+				"stamp_merge_error"
+			)
+			# Если merge не удался, возвращаем оригинальную страницу без штампов
+			# но не выбрасываем исключение - пусть вызывающий код решает
+			return page, 0
+	else:
+		# Если штампы не были применены, логируем предупреждение с деталями ошибок
+		error_summary = f"No stamps applied. Total: {len(stamps_info)}, Applied: {stamps_applied}"
+		if errors:
+			error_summary += f". Errors: {'; '.join(errors[:5])}"  # Показываем первые 5 ошибок
+			if len(errors) > 5:
+				error_summary += f" (и еще {len(errors) - 5} ошибок)"
+		frappe.log_error(error_summary, "stamp_no_stamps_applied")
+
+	return page, stamps_applied
+
+
+def calculate_stamp_position(page_width, page_height, stamp_width, stamp_height, position, custom_x=None, custom_y=None):
+	"""Calculate stamp position on page"""
+	margin = 20  # Margin from edges in points
+
+	positions = {
+		"top-left": (margin, page_height - stamp_height - margin),
+		"top-center": ((page_width - stamp_width) / 2, page_height - stamp_height - margin),
+		"top-right": (page_width - stamp_width - margin, page_height - stamp_height - margin),
+		"center": ((page_width - stamp_width) / 2, (page_height - stamp_height) / 2),
+		"bottom-left": (margin, margin),
+		"bottom-center": ((page_width - stamp_width) / 2, margin),
+		"bottom-right": (page_width - stamp_width - margin, margin),
+	}
+
+	if position == "custom" and custom_x is not None and custom_y is not None:
+		# custom_x и custom_y - это центр штампа в PDF координатах
+		# ReportLab использует координаты от левого нижнего угла
+		# Нужно вычесть половину размера штампа, чтобы получить левый нижний угол
+		x = float(custom_x) - (stamp_width / 2)
+		y = float(custom_y) - (stamp_height / 2)
+		# Убеждаемся, что координаты не выходят за границы страницы
+		x = max(0, min(x, page_width - stamp_width))
+		y = max(0, min(y, page_height - stamp_height))
+		
+		return (x, y)
+
+	return positions.get(position, positions["bottom-right"])
+
+
+def get_file_path(file_url):
+	"""Get absolute file path from Frappe file URL"""
+	if not file_url:
+		return None
+
+	# Сначала пытаемся найти файл через File doctype
+	from frappe.core.doctype.file.utils import find_file_by_url
+	
+	# Нормализуем URL - добавляем / если нужно
+	normalized_url = file_url if file_url.startswith('/') else '/' + file_url
+	
+	try:
+		file_doc = find_file_by_url(normalized_url)
+		if file_doc:
+			# Используем метод File для получения пути
+			return file_doc.get_full_path()
+	except:
+		pass
+	
+	# Fallback: пытаемся найти по file_url в базе данных
+	try:
+		file_name = frappe.db.get_value("File", {"file_url": normalized_url}, "name")
+		if file_name:
+			file_doc = frappe.get_doc("File", file_name)
+			return file_doc.get_full_path()
+	except:
+		pass
+
+	# Fallback: пытаемся построить путь напрямую
+	# Remove leading slash if present
+	if file_url.startswith('/'):
+		file_url = file_url[1:]
+
+	# Handle private files
+	if file_url.startswith('private/files/'):
+		return frappe.get_site_path(file_url)
+
+	# Handle public files
+	if file_url.startswith('files/'):
+		return frappe.get_site_path('public', file_url)
+
+	return None

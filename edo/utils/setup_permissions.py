@@ -118,6 +118,83 @@ def setup_admin_permissions():
 			doc.save(ignore_permissions=True)
 			frappe.db.commit()
 			print(f"Saved permissions for {doctype}")
+	
+	# Setup workspace shortcut for EDO Stamp
+	setup_workspace_stamp_shortcut()
+
+def setup_workspace_stamp_shortcut():
+	"""Ensure EDO Stamp shortcut exists in EDO workspace"""
+	if not frappe.db.exists("Workspace", "EDO"):
+		print("EDO workspace not found, skipping shortcut setup")
+		return
+	
+	try:
+		ws = frappe.get_doc("Workspace", "EDO")
+		
+		# Check if EDO Stamp shortcut already exists
+		has_stamp_shortcut = any(s.link_to == "EDO Stamp" for s in ws.shortcuts)
+		
+		if not has_stamp_shortcut:
+			# Add EDO Stamp shortcut
+			ws.append("shortcuts", {
+				"doc_view": "List",
+				"label": "EDO Stamp",
+				"link_to": "EDO Stamp",
+				"type": "DocType"
+			})
+			ws.save(ignore_permissions=True)
+			frappe.db.commit()
+			print("✓ Added EDO Stamp shortcut to workspace")
+		else:
+			print("✓ EDO Stamp shortcut already exists in workspace")
+		
+		# Also ensure it's in content (for display)
+		import json
+		content = json.loads(ws.content) if ws.content else []
+		
+		# Check if stamps section exists in content
+		has_stamp_header = any(
+			block.get("type") == "header" and 
+			"Штампы" in str(block.get("data", {}).get("text", ""))
+			for block in content
+		)
+		
+		has_stamp_in_content = any(
+			block.get("type") == "shortcut" and
+			block.get("data", {}).get("shortcut_name") == "EDO Stamp"
+			for block in content
+		)
+		
+		if not has_stamp_header or not has_stamp_in_content:
+			# Add stamps section if it doesn't exist
+			if not has_stamp_header:
+				content.append({
+					"id": "edo_header_stamps",
+					"type": "header",
+					"data": {
+						"text": '<span style="font-size: 18px;"><b>Штампы</b></span>',
+						"col": 12
+					}
+				})
+			
+			if not has_stamp_in_content:
+				content.append({
+					"id": "edo_shortcut_stamp",
+					"type": "shortcut",
+					"data": {
+						"shortcut_name": "EDO Stamp",
+						"col": 4
+					}
+				})
+			
+			ws.content = json.dumps(content, ensure_ascii=False)
+			ws.save(ignore_permissions=True)
+			frappe.db.commit()
+			print("✓ Updated workspace content with EDO Stamp")
+		
+	except Exception as e:
+		print(f"Warning: Failed to setup workspace shortcut: {str(e)}")
+		# Don't fail the whole installation if workspace setup fails
 
 if __name__ == "__main__":
 	frappe.init(site="your-site.local")

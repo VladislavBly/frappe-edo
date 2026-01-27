@@ -14,7 +14,8 @@ fixtures = [
 	"edo/fixtures/edo_delivery_method.json",
 	"edo/fixtures/edo_classification.json",
 	"edo/fixtures/edo_status.json",
-	"edo/fixtures/edo_correspondent.json"
+	"edo/fixtures/edo_correspondent.json",
+	{"dt": "Workspace", "filters": [["name", "=", "EDO"]]}
 ]
 
 # Apps

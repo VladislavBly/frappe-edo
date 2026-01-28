@@ -1,10 +1,11 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { DocumentSidebar } from '../components/DocumentSidebar'
 import { DocumentContent } from '../components/DocumentContent'
 import { DocumentMetadata } from '../components/DocumentMetadata'
 import { AddDocumentDialog } from '../components/AddDocumentDialog'
 import { useDocuments, useDocument } from '../api/documents/api'
+import { useDocumentFilters } from '../forms'
 import type { EDODocument } from '../api/documents/types'
 
 interface DocumentsPageProps {
@@ -13,6 +14,7 @@ interface DocumentsPageProps {
 
 export function DocumentsPage({ canEdit = false }: DocumentsPageProps) {
   const [selectedDocumentName, setSelectedDocumentName] = useState<string | null>(null)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [filters, setFilters] = useState<{
     search?: string
     status?: string
@@ -20,15 +22,42 @@ export function DocumentsPage({ canEdit = false }: DocumentsPageProps) {
     priority?: string
     correspondent?: string
   }>()
-  const [editDialogOpen, setEditDialogOpen] = useState(false)
 
-  // Fetch documents list
+  // Use document filters hook - manages form state and debouncing
+  // Memoize the callback to prevent form recreation
+  const handleFiltersChange = useCallback((filters: {
+    search?: string
+    status?: string
+    document_type?: string
+    priority?: string
+    correspondent?: string
+  }) => {
+    setFilters(filters)
+  }, [])
+
+  const { form: filtersForm } = useDocumentFilters({
+    onFiltersChange: handleFiltersChange,
+  })
+
+  // Memoize filters object to prevent unnecessary re-renders
+  const memoizedFilters = useMemo(
+    () => ({
+      search: filters?.search?.trim() || undefined,
+      status: filters?.status || undefined,
+      document_type: filters?.document_type || undefined,
+      priority: filters?.priority || undefined,
+      correspondent: filters?.correspondent || undefined,
+    }),
+    [filters]
+  )
+
+  // Fetch documents list - automatically refetches when filters change
   const {
     data: documents = [],
     isLoading: loadingList,
     error: documentsError,
     refetch: refetchDocuments,
-  } = useDocuments(filters)
+  } = useDocuments(memoizedFilters)
 
   // Fetch selected document
   const { data: selectedDocument, isLoading: loadingDocument } = useDocument(
@@ -57,18 +86,9 @@ export function DocumentsPage({ canEdit = false }: DocumentsPageProps) {
     [refetchDocuments]
   )
 
-  const handleFiltersChange = useCallback(
-    (newFilters?: {
-      search?: string
-      status?: string
-      document_type?: string
-      priority?: string
-      correspondent?: string
-    }) => {
-      setFilters(newFilters)
-    },
-    []
-  )
+  const handleDocumentsRefresh = useCallback(() => {
+    refetchDocuments()
+  }, [refetchDocuments])
 
   // Auto-select first document when documents are loaded and none is selected
   useEffect(() => {
@@ -100,8 +120,8 @@ export function DocumentsPage({ canEdit = false }: DocumentsPageProps) {
           onSelectDocument={handleSelectDocument}
           loading={loadingList}
           error={error}
-          onDocumentsRefresh={() => refetchDocuments()}
-          onFiltersChange={handleFiltersChange}
+          onDocumentsRefresh={handleDocumentsRefresh}
+          filtersForm={filtersForm}
         />
       </aside>
 

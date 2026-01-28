@@ -73,6 +73,18 @@
     "noDocuments": "No documents",
     "addDocument": "Add Document"
   },
+  "filters": {
+    "title": "Filters",
+    "status": "Status",
+    "documentType": "Document Type",
+    "priority": "Priority",
+    "correspondent": "Correspondent",
+    "selectStatus": "Select status",
+    "selectDocumentType": "Select type",
+    "selectPriority": "Select priority",
+    "selectCorrespondent": "Select correspondent",
+    "clearFilters": "Clear filters ({{count}})"
+  },
   "documentContent": {
     "loading": "Loading document...",
     "noDocumentSelected": "Select a document",

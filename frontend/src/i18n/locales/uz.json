@@ -73,6 +73,18 @@
     "noDocuments": "Hujjatlar yo'q",
     "addDocument": "Hujjat qo'shish"
   },
+  "filters": {
+    "title": "Filtrlar",
+    "status": "Holati",
+    "documentType": "Hujjat turi",
+    "priority": "Prioritet",
+    "correspondent": "Korrespondent",
+    "selectStatus": "Holatni tanlang",
+    "selectDocumentType": "Turni tanlang",
+    "selectPriority": "Prioritetni tanlang",
+    "selectCorrespondent": "Korrespondentni tanlang",
+    "clearFilters": "Filtrlarni tozalash ({{count}})"
+  },
   "documentContent": {
     "loading": "Hujjat yuklanmoqda...",
     "noDocumentSelected": "Hujjatni tanlang",

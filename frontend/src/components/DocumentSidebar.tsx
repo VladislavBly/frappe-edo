@@ -1,33 +1,133 @@
-import {
-  FileText,
-  Calendar,
-  Search,
-  Plus,
-  X,
-  Filter,
-  ChevronDown,
-  ChevronUp,
-  Tag,
-  FileType,
-  AlertCircle,
-  Building2,
-} from 'lucide-react'
+import { FileText, Calendar, Search, Plus, Filter, ChevronDown, ChevronUp } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { useState, memo, useMemo } from 'react'
+import { Controller, useWatch } from 'react-hook-form'
 import { Badge } from './ui/badge'
 import { Skeleton } from './ui/skeleton'
 import { Button } from './ui/button'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { cn } from '../lib/utils'
-import { api } from '../lib/api'
+import { useCurrentUser } from '../api/users/api'
+import {
+  useStatuses,
+  useDocumentTypes,
+  usePriorities,
+  useCorrespondents,
+} from '../api/references/api'
+import { DocumentFilters } from '../forms/documentFilters'
+import { useDocumentFilters } from '../forms'
 import type { EDODocument } from '../api/documents/types'
-import type {
-  EDOStatus,
-  EDODocumentType,
-  EDOPriority,
-  EDOCorrespondent,
-} from '../api/references/types'
 import { AddDocumentDialog } from './AddDocumentDialog'
+
+// Isolated component for filter toggle button to prevent re-renders
+// Uses useWatch to subscribe only to specific fields
+const FilterToggleButton = memo(
+  ({
+    showFilters,
+    onToggle,
+    filtersForm,
+  }: {
+    showFilters: boolean
+    onToggle: () => void
+    filtersForm: ReturnType<typeof useDocumentFilters>['form']
+  }) => {
+    const { t } = useTranslation()
+    
+    // Use useWatch to subscribe only to filter fields - this component will re-render
+    // only when these specific fields change, not the entire sidebar
+    const status = useWatch({ control: filtersForm.control, name: 'status' })
+    const documentType = useWatch({ control: filtersForm.control, name: 'document_type' })
+    const priority = useWatch({ control: filtersForm.control, name: 'priority' })
+    const correspondent = useWatch({ control: filtersForm.control, name: 'correspondent' })
+
+    const activeFiltersCount = useMemo(
+      () => [status, documentType, priority, correspondent].filter(Boolean).length,
+      [status, documentType, priority, correspondent]
+    )
+
+    return (
+      <div className="p-3 border-b bg-muted/30">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onToggle}
+          className="w-full justify-between h-9"
+        >
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4" />
+            <span className="text-sm font-medium">{t('filters.title')}</span>
+            {activeFiltersCount > 0 && (
+              <Badge variant="secondary" className="ml-1 h-5 min-w-5 px-1.5 text-xs">
+                {activeFiltersCount}
+              </Badge>
+            )}
+          </div>
+          {showFilters ? (
+            <ChevronUp className="w-4 h-4 text-muted-foreground" />
+          ) : (
+            <ChevronDown className="w-4 h-4 text-muted-foreground" />
+          )}
+        </Button>
+      </div>
+    )
+  }
+)
+FilterToggleButton.displayName = 'FilterToggleButton'
+
+// Isolated component for empty state message to prevent re-renders
+const EmptyStateMessage = memo(
+  ({ filtersForm }: { filtersForm: ReturnType<typeof useDocumentFilters>['form'] }) => {
+    // Use useWatch to subscribe only to filter fields
+    const search = useWatch({ control: filtersForm.control, name: 'search' })
+    const status = useWatch({ control: filtersForm.control, name: 'status' })
+    const documentType = useWatch({ control: filtersForm.control, name: 'document_type' })
+    const priority = useWatch({ control: filtersForm.control, name: 'priority' })
+    const correspondent = useWatch({ control: filtersForm.control, name: 'correspondent' })
+
+    const hasFilters = useMemo(
+      () => !!(search || status || documentType || priority || correspondent),
+      [search, status, documentType, priority, correspondent]
+    )
+
+    if (!hasFilters) return null
+
+    return (
+      <p className="text-xs text-muted-foreground">
+        Попробуйте изменить параметры поиска или фильтры
+      </p>
+    )
+  }
+)
+EmptyStateMessage.displayName = 'EmptyStateMessage'
+
+// Isolated component for filters panel to prevent re-renders
+const FiltersPanel = memo(
+  ({
+    statuses,
+    documentTypes,
+    priorities,
+    correspondents,
+    filtersForm,
+  }: {
+    statuses: ReturnType<typeof useStatuses>['data']
+    documentTypes: ReturnType<typeof useDocumentTypes>['data']
+    priorities: ReturnType<typeof usePriorities>['data']
+    correspondents: ReturnType<typeof useCorrespondents>['data']
+    filtersForm: ReturnType<typeof useDocumentFilters>['form']
+  }) => {
+    return (
+      <div className="p-3 border-b bg-muted/20 space-y-3 animate-in slide-in-from-top-2 duration-200">
+        <DocumentFilters
+          statuses={statuses || []}
+          documentTypes={documentTypes || []}
+          priorities={priorities || []}
+          correspondents={correspondents || []}
+          form={filtersForm}
+        />
+      </div>
+    )
+  }
+)
+FiltersPanel.displayName = 'FiltersPanel'
 
 interface DocumentSidebarProps {
   documents: EDODocument[]
@@ -36,127 +136,31 @@ interface DocumentSidebarProps {
   loading: boolean
   error: string | null
   onDocumentsRefresh?: () => void
-  onFiltersChange?: (filters: {
-    search?: string
-    status?: string
-    document_type?: string
-    priority?: string
-    correspondent?: string
-  }) => void
+  filtersForm: ReturnType<typeof useDocumentFilters>['form']
 }
 
-export function DocumentSidebar({
+function DocumentSidebarComponent({
   documents,
   selectedDocument,
   onSelectDocument,
   loading,
   error,
   onDocumentsRefresh,
-  onFiltersChange,
+  filtersForm,
 }: DocumentSidebarProps) {
   const { t } = useTranslation()
-  const [userRoles, setUserRoles] = useState<string[]>([])
+  const { data: currentUser } = useCurrentUser()
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
-  const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('')
-  const [documentTypeFilter, setDocumentTypeFilter] = useState<string>('')
-  const [priorityFilter, setPriorityFilter] = useState<string>('')
-  const [correspondentFilter, setCorrespondentFilter] = useState<string>('')
-  const searchInputRef = useRef<HTMLInputElement>(null)
 
-  // Reference data for filters
-  const [statuses, setStatuses] = useState<EDOStatus[]>([])
-  const [documentTypes, setDocumentTypes] = useState<EDODocumentType[]>([])
-  const [priorities, setPriorities] = useState<EDOPriority[]>([])
-  const [correspondents, setCorrespondents] = useState<EDOCorrespondent[]>([])
+  // Use hooks for reference data
+  const { data: statuses = [] } = useStatuses()
+  const { data: documentTypes = [] } = useDocumentTypes()
+  const { data: priorities = [] } = usePriorities()
+  const { data: correspondents = [] } = useCorrespondents()
 
-  useEffect(() => {
-    loadUserRoles()
-    loadFilterData()
-  }, [])
-
-  const loadFilterData = async () => {
-    try {
-      const [statusesData, typesData, prioritiesData, correspondentsData] = await Promise.all([
-        api.getStatuses().catch(() => []),
-        api.getDocumentTypes().catch(() => []),
-        api.getPriorities().catch(() => []),
-        api.getCorrespondents().catch(() => []),
-      ])
-      setStatuses(statusesData || [])
-      setDocumentTypes(typesData || [])
-      setPriorities(prioritiesData || [])
-      setCorrespondents(correspondentsData || [])
-    } catch (err) {
-      console.error('Failed to load filter data:', err)
-      // Устанавливаем пустые массивы в случае ошибки
-      setStatuses([])
-      setDocumentTypes([])
-      setPriorities([])
-      setCorrespondents([])
-    }
-  }
-
-  const applyFilters = useCallback(() => {
-    if (onFiltersChange) {
-      onFiltersChange({
-        search: searchQuery.trim() || undefined,
-        status: statusFilter || undefined,
-        document_type: documentTypeFilter || undefined,
-        priority: priorityFilter || undefined,
-        correspondent: correspondentFilter || undefined,
-      })
-    }
-  }, [
-    searchQuery,
-    statusFilter,
-    documentTypeFilter,
-    priorityFilter,
-    correspondentFilter,
-    onFiltersChange,
-  ])
-
-  // Debounced search - only apply filters after user stops typing
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      applyFilters()
-    }, 500) // Increased debounce time
-    return () => clearTimeout(timer)
-  }, [
-    searchQuery,
-    statusFilter,
-    documentTypeFilter,
-    priorityFilter,
-    correspondentFilter,
-    applyFilters,
-  ])
-
-  const clearFilters = () => {
-    setSearchQuery('')
-    setStatusFilter('')
-    setDocumentTypeFilter('')
-    setPriorityFilter('')
-    setCorrespondentFilter('')
-  }
-
-  const activeFiltersCount = [
-    statusFilter,
-    documentTypeFilter,
-    priorityFilter,
-    correspondentFilter,
-  ].filter(Boolean).length
-
-  const loadUserRoles = async () => {
-    try {
-      const user = await api.getCurrentUser()
-      setUserRoles(user.roles || [])
-    } catch (err) {
-      console.error('Failed to load user roles:', err)
-    }
-  }
-
-  const canCreateDocument = userRoles.includes('EDO Admin') || userRoles.includes('EDO Manager')
+  const canCreateDocument =
+    currentUser?.roles?.includes('EDO Admin') || currentUser?.roles?.includes('EDO Manager')
 
   const handleAddDocument = () => {
     setShowAddDialog(true)
@@ -223,165 +227,37 @@ export function DocumentSidebar({
         <div className="p-3 border-b">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              ref={searchInputRef}
-              type="text"
-              placeholder={t('documentSidebar.searchPlaceholder')}
-              value={searchQuery}
-              onChange={e => {
-                const value = e.target.value
-                const wasFocused = document.activeElement === e.target
-                setSearchQuery(value)
-                // Restore focus after state update
-                if (wasFocused && searchInputRef.current) {
-                  requestAnimationFrame(() => {
-                    if (searchInputRef.current) {
-                      searchInputRef.current.focus()
-                      // Move cursor to end
-                      const length = searchInputRef.current.value.length
-                      searchInputRef.current.setSelectionRange(length, length)
-                    }
-                  })
-                }
-              }}
-              className="w-full pl-9 pr-3 py-2 text-sm border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+            <Controller
+              name="search"
+              control={filtersForm.control}
+              render={({ field }) => (
+                <input
+                  {...field}
+                  type="text"
+                  placeholder={t('documentSidebar.searchPlaceholder')}
+                  className="w-full pl-9 pr-3 py-2 text-sm border rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              )}
             />
           </div>
         </div>
 
         {/* Filters Toggle Button */}
-        <div className="p-3 border-b bg-muted/30">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowFilters(!showFilters)}
-            className="w-full justify-between h-9"
-          >
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4" />
-              <span className="text-sm font-medium">Фильтры</span>
-              {activeFiltersCount > 0 && (
-                <Badge variant="secondary" className="ml-1 h-5 min-w-5 px-1.5 text-xs">
-                  {activeFiltersCount}
-                </Badge>
-              )}
-            </div>
-            {showFilters ? (
-              <ChevronUp className="w-4 h-4 text-muted-foreground" />
-            ) : (
-              <ChevronDown className="w-4 h-4 text-muted-foreground" />
-            )}
-          </Button>
-        </div>
+        <FilterToggleButton
+          showFilters={showFilters}
+          onToggle={() => setShowFilters(!showFilters)}
+          filtersForm={filtersForm}
+        />
 
         {/* Filters Panel */}
         {showFilters && (
-          <div className="p-3 border-b bg-muted/20 space-y-3 animate-in slide-in-from-top-2 duration-200">
-            {/* Status Filter */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                <Tag className="w-3.5 h-3.5" />
-                Статус
-              </label>
-              <Select
-                value={statusFilter || undefined}
-                onValueChange={value => setStatusFilter(value || '')}
-              >
-                <SelectTrigger className="h-9 text-sm">
-                  <SelectValue placeholder="Выберите статус" />
-                </SelectTrigger>
-                <SelectContent>
-                  {statuses.map(status => (
-                    <SelectItem key={status.name} value={status.name}>
-                      {status.status_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Document Type Filter */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                <FileType className="w-3.5 h-3.5" />
-                Тип документа
-              </label>
-              <Select
-                value={documentTypeFilter || undefined}
-                onValueChange={value => setDocumentTypeFilter(value || '')}
-              >
-                <SelectTrigger className="h-9 text-sm">
-                  <SelectValue placeholder="Выберите тип" />
-                </SelectTrigger>
-                <SelectContent>
-                  {documentTypes.map(type => (
-                    <SelectItem key={type.name} value={type.name}>
-                      {type.document_type_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Priority Filter */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                <AlertCircle className="w-3.5 h-3.5" />
-                Приоритет
-              </label>
-              <Select
-                value={priorityFilter || undefined}
-                onValueChange={value => setPriorityFilter(value || '')}
-              >
-                <SelectTrigger className="h-9 text-sm">
-                  <SelectValue placeholder="Выберите приоритет" />
-                </SelectTrigger>
-                <SelectContent>
-                  {priorities.map(priority => (
-                    <SelectItem key={priority.name} value={priority.name}>
-                      {priority.priority_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Correspondent Filter */}
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
-                <Building2 className="w-3.5 h-3.5" />
-                Корреспондент
-              </label>
-              <Select
-                value={correspondentFilter || undefined}
-                onValueChange={value => setCorrespondentFilter(value || '')}
-              >
-                <SelectTrigger className="h-9 text-sm">
-                  <SelectValue placeholder="Выберите корреспондента" />
-                </SelectTrigger>
-                <SelectContent>
-                  {correspondents.map(corr => (
-                    <SelectItem key={corr.name} value={corr.name}>
-                      {corr.correspondent_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Clear Filters Button */}
-            {activeFiltersCount > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={clearFilters}
-                className="w-full h-9 text-sm"
-              >
-                <X className="w-4 h-4 mr-2" />
-                Очистить фильтры ({activeFiltersCount})
-              </Button>
-            )}
-          </div>
+          <FiltersPanel
+            statuses={statuses}
+            documentTypes={documentTypes}
+            priorities={priorities}
+            correspondents={correspondents}
+            filtersForm={filtersForm}
+          />
         )}
 
         {/* Add document button */}
@@ -411,11 +287,7 @@ export function DocumentSidebar({
               <p className="text-sm text-muted-foreground mb-1">
                 {t('documentSidebar.noDocuments')}
               </p>
-              {(searchQuery || activeFiltersCount > 0) && (
-                <p className="text-xs text-muted-foreground">
-                  Попробуйте изменить параметры поиска или фильтры
-                </p>
-              )}
+              <EmptyStateMessage filtersForm={filtersForm} />
             </div>
           ) : (
             documents.map(doc => (
@@ -462,3 +334,21 @@ export function DocumentSidebar({
     </>
   )
 }
+
+// Memoize component to prevent re-renders when props haven't changed
+export const DocumentSidebar = memo(DocumentSidebarComponent, (prevProps, nextProps) => {
+  // Re-render only if these props change
+  // Compare documents by reference and length to avoid unnecessary re-renders
+  const documentsEqual =
+    prevProps.documents === nextProps.documents ||
+    (prevProps.documents.length === nextProps.documents.length &&
+      prevProps.documents.every((doc, i) => doc.name === nextProps.documents[i]?.name))
+
+  return (
+    documentsEqual &&
+    prevProps.selectedDocument?.name === nextProps.selectedDocument?.name &&
+    prevProps.loading === nextProps.loading &&
+    prevProps.error === nextProps.error &&
+    prevProps.filtersForm === nextProps.filtersForm
+  )
+})

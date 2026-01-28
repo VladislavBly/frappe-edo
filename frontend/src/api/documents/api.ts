@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { api } from '../../lib/api'
 import type { EDODocument } from './types'
 
@@ -29,6 +29,7 @@ export function useDocuments(filters?: {
     queryKey: documentKeys.list(filters),
     queryFn: () => api.getDocuments(filters),
     staleTime: 30000, // 30 seconds
+    placeholderData: keepPreviousData, // Keep showing previous data while fetching new
   })
 }
 

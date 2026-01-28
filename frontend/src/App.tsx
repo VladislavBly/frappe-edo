@@ -71,33 +71,33 @@ function AppContent() {
   }
 
   return (
-    <HeaderProvider>
-      <div className="h-screen flex bg-background">
-        <Sidebar currentPage={currentPage} onNavigate={handleNavigate} />
+    <div className="h-screen flex bg-background">
+      <Sidebar currentPage={currentPage} onNavigate={handleNavigate} />
 
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <Header />
-          <AnimatePresence mode="wait">
-            <Routes location={location} key={location.pathname}>
-              <Route
-                path="/"
-                element={
-                  <DashboardPage onNavigateToDocuments={() => handleNavigate('documents')} />
-                }
-              />
-              <Route path="/documents/*" element={<DocumentsPage canEdit={canEdit} />} />
-            </Routes>
-          </AnimatePresence>
-        </div>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <Header />
+        <AnimatePresence mode="wait">
+          <Routes location={location} key={location.pathname}>
+            <Route
+              path="/"
+              element={
+                <DashboardPage onNavigateToDocuments={() => handleNavigate('documents')} />
+              }
+            />
+            <Route path="/documents/*" element={<DocumentsPage canEdit={canEdit} />} />
+          </Routes>
+        </AnimatePresence>
       </div>
-    </HeaderProvider>
+    </div>
   )
 }
 
 function App() {
   return (
     <HashRouter>
-      <AppContent />
+      <HeaderProvider>
+        <AppContent />
+      </HeaderProvider>
     </HashRouter>
   )
 }

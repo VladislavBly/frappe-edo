@@ -73,6 +73,18 @@
     "noDocuments": "Нет документов",
     "addDocument": "Добавить документ"
   },
+  "filters": {
+    "title": "Фильтры",
+    "status": "Статус",
+    "documentType": "Тип документа",
+    "priority": "Приоритет",
+    "correspondent": "Корреспондент",
+    "selectStatus": "Выберите статус",
+    "selectDocumentType": "Выберите тип",
+    "selectPriority": "Выберите приоритет",
+    "selectCorrespondent": "Выберите корреспондента",
+    "clearFilters": "Очистить фильтры ({{count}})"
+  },
   "documentContent": {
     "loading": "Загрузка документа...",
     "noDocumentSelected": "Выберите документ",

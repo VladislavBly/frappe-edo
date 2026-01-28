@@ -80,8 +80,8 @@ export function useDirectorApproveDocument() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async (data: { name: string; comment?: string }) => {
-      return api.directorApproveDocument(data.name, data.comment)
+    mutationFn: async (data: { name: string; comment?: string; signature?: string }) => {
+      return api.directorApproveDocument(data.name, data.comment, data.signature)
     },
     onSuccess: updatedDoc => {
       queryClient.invalidateQueries({ queryKey: documentKeys.lists() })
@@ -152,7 +152,8 @@ export function useCanEditDocument() {
   return useQuery({
     queryKey: [...documentKeys.all, 'canEdit'] as const,
     queryFn: () => api.canEditDocument(),
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 0,
+    gcTime: 0,
   })
 }
 
@@ -161,7 +162,8 @@ export function useCanDirectorApprove() {
   return useQuery({
     queryKey: [...documentKeys.all, 'canDirectorApprove'] as const,
     queryFn: () => api.canDirectorApprove(),
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 0,
+    gcTime: 0,
   })
 }
 
@@ -171,7 +173,8 @@ export function useCanExecutorSign(name: string | null) {
     queryKey: [...documentKeys.all, 'canExecutorSign', name] as const,
     queryFn: () => api.canExecutorSign(name!),
     enabled: !!name,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 0,
+    gcTime: 0,
   })
 }
 
@@ -180,6 +183,7 @@ export function useCanReceptionSubmit() {
   return useQuery({
     queryKey: [...documentKeys.all, 'canReceptionSubmit'] as const,
     queryFn: () => api.canReceptionSubmit(),
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 0,
+    gcTime: 0,
   })
 }

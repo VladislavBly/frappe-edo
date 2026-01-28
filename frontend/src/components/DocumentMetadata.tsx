@@ -26,9 +26,6 @@ import { Label } from './ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { UserSelect, UserMultiSelect } from './ui/user-select'
 import {
-  useCanDirectorApprove,
-  useCanExecutorSign,
-  useCanReceptionSubmit,
   useDirectorApproveDocument,
   useDirectorRejectDocument,
   useExecutorSignDocument,
@@ -36,8 +33,11 @@ import {
   useUpdateDocument,
 } from '../api/documents/api'
 import { useResolutions } from '../api/references/api'
-import { useUsers } from '../api/users/api'
+import { useUsers, useCurrentUser } from '../api/users/api'
 import type { EDODocument } from '../api/documents/types'
+import { EImzoKeySelectDialog } from './EImzoKeySelectDialog'
+import { signDocument, type Cert } from '../vendors/e-imzo-func'
+import { api } from '../lib/api'
 
 interface DocumentMetadataProps {
   document: EDODocument | null
@@ -54,10 +54,17 @@ export function DocumentMetadata({
 }: DocumentMetadataProps) {
   const { t, i18n } = useTranslation()
 
-  // Use hooks for permissions
-  const { data: canDirectorApprove = false } = useCanDirectorApprove()
-  const { data: canExecutorSign = false } = useCanExecutorSign(document?.name || null)
-  const { data: canReceptionSubmit = false } = useCanReceptionSubmit()
+  // Get current user for role-based permissions
+  const { data: currentUser } = useCurrentUser()
+
+  // Role-based permissions - check roles directly
+  const canReceptionSubmit = currentUser?.roles?.includes('EDO Reception') ?? false
+  const canDirectorApprove = currentUser?.roles?.includes('EDO Director') ?? false
+
+  // Executor can sign only if they are assigned as executor on this document
+  const isExecutor = document?.executor === currentUser?.email
+  const isCoExecutor = document?.co_executors?.some((ce: any) => ce.user === currentUser?.email) ?? false
+  const canExecutorSign = (isExecutor || isCoExecutor) && (currentUser?.roles?.includes('EDO Executor') ?? false)
 
   // Use hooks for mutations
   const directorApproveMutation = useDirectorApproveDocument()
@@ -74,6 +81,9 @@ export function DocumentMetadata({
   const [signDialogOpen, setSignDialogOpen] = useState(false)
   const [receptionDialogOpen, setReceptionDialogOpen] = useState(false)
   const [directorEditDialogOpen, setDirectorEditDialogOpen] = useState(false)
+  const [eImzoKeySelectOpen, setEImzoKeySelectOpen] = useState(false)
+  const [selectedEImzoKey, setSelectedEImzoKey] = useState<Cert | null>(null)
+  const [signing, setSigning] = useState(false)
   const [comment, setComment] = useState('')
 
   // Reception dialog state
@@ -86,20 +96,53 @@ export function DocumentMetadata({
   const resolutions = resolutionsData
   const users = usersData
 
+  const handleApproveClick = () => {
+    // Вместо прямого согласования, открываем модалку выбора ключа
+    setEImzoKeySelectOpen(true)
+  }
+
+  const handleEImzoKeySelected = (key: any) => {
+    setSelectedEImzoKey(key)
+    // После выбора ключа открываем диалог согласования
+    setApproveDialogOpen(true)
+  }
+
   const handleApprove = async () => {
-    if (!document) return
+    if (!document || !selectedEImzoKey) return
+
+    setSigning(true)
     try {
+      // 1. Подписываем документ через E-IMZO
+      const dataToSign = {
+        document_name: document.name,
+        document_title: document.title,
+        action: 'approve',
+        timestamp: new Date().toISOString(),
+        comment: comment || undefined,
+      }
+
+      const pkcs7 = await signDocument(selectedEImzoKey, dataToSign)
+      console.log('Document signed, PKCS7 length:', pkcs7.length)
+
+      // 2. Отправляем на сервер с подписью
       const updated = await directorApproveMutation.mutateAsync({
         name: document.name,
         comment,
+        signature: pkcs7, // Передаем подпись на бэкенд
       })
+
       setApproveDialogOpen(false)
+      setEImzoKeySelectOpen(false)
       setComment('')
+      setSelectedEImzoKey(null)
       if (onDocumentUpdate) {
         onDocumentUpdate(updated)
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Ошибка при согласовании')
+      console.error('Signing error:', err)
+      alert(err instanceof Error ? err.message : 'Ошибка при подписании')
+    } finally {
+      setSigning(false)
     }
   }
 
@@ -580,7 +623,7 @@ export function DocumentMetadata({
                 <Button
                   className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-md"
                   size="sm"
-                  onClick={() => setApproveDialogOpen(true)}
+                  onClick={handleApproveClick}
                 >
                   <CheckCircle2 className="w-4 h-4 mr-2" />
                   Согласовать
@@ -658,10 +701,10 @@ export function DocumentMetadata({
             </Button>
             <Button
               onClick={handleApprove}
-              disabled={directorApproveMutation.isPending}
+              disabled={directorApproveMutation.isPending || signing}
               className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
             >
-              {directorApproveMutation.isPending ? 'Согласование...' : 'Согласовать'}
+              {signing ? 'Подписание...' : directorApproveMutation.isPending ? 'Согласование...' : 'Согласовать'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -956,6 +999,21 @@ export function DocumentMetadata({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* E-IMZO Key Select Dialog */}
+      <EImzoKeySelectDialog
+        open={eImzoKeySelectOpen}
+        onOpenChange={setEImzoKeySelectOpen}
+        onKeySelected={handleEImzoKeySelected}
+        documentName={document?.name}
+        onDocumentSigned={() => {
+          // Обновляем документ после подписания
+          if (document && onDocumentUpdate) {
+            // Перезагружаем документ
+            api.getDocument(document.name).then(onDocumentUpdate)
+          }
+        }}
+      />
     </div>
   )
 }

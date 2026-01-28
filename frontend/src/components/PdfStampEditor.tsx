@@ -43,7 +43,11 @@ export function PdfStampEditor({
   onStampApplied,
 }: PdfStampEditorProps) {
   const { data: stampsData = [], isLoading: stampsLoading } = useStamps()
-  const { data: pdfInfoData, isLoading: pdfInfoLoading } = usePdfInfo(documentName)
+  const {
+    data: pdfInfoData,
+    isLoading: pdfInfoLoading,
+    error: pdfInfoError,
+  } = usePdfInfo(documentName)
   const applyStampsMutation = useApplyStamps()
 
   const [currentPage, setCurrentPage] = useState(1)
@@ -62,6 +66,14 @@ export function PdfStampEditor({
 
   const loading = stampsLoading || pdfInfoLoading
   const stamps = stampsData
+
+  // Показываем ошибку если не удалось загрузить PDF info
+  useEffect(() => {
+    if (pdfInfoError) {
+      console.error('Failed to load PDF info:', pdfInfoError)
+      // Не блокируем работу редактора, просто логируем ошибку
+    }
+  }, [pdfInfoError])
   const pdfInfo = pdfInfoData || null
 
   const pdfContainerRef = useRef<HTMLDivElement>(null)

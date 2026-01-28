@@ -182,22 +182,164 @@ class FrappeAPI {
     this.baseURL = window.location.origin
   }
 
-  async call(method: string, args?: any) {
-    const response = await fetch(`${this.baseURL}/api/method/${method}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Frappe-CSRF-Token': this.getCSRFToken(),
-      },
-      body: JSON.stringify(args || {}),
+  async call(method: string, args?: any): Promise<any> {
+    // Улучшенная обработка ошибок с парсингом структурированных ошибок
+    // Используем XMLHttpRequest для обхода проблемы с заголовком Expect: 100-continue
+    // который вызывает ошибку 417 в некоторых конфигурациях сервера
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest()
+      const url = `${this.baseURL}/api/method/${method}`
+      
+      xhr.open('POST', url, true)
+      xhr.setRequestHeader('Content-Type', 'application/json')
+      xhr.setRequestHeader('Accept', 'application/json')
+      xhr.setRequestHeader('X-Frappe-CSRF-Token', this.getCSRFToken())
+      xhr.withCredentials = true
+
+      const sanitizeErrorText = (text: string) => {
+        if (!text) return 'Ошибка'
+        // Часто Frappe присылает traceback — в UI его показывать нельзя
+        if (text.includes('Traceback (most recent call last)')) {
+          const lines = text.split('\n').map((l) => l.trim()).filter(Boolean)
+          // берём последнюю осмысленную строку
+          const last = lines[lines.length - 1]
+          return last || 'Ошибка на сервере'
+        }
+        // Убираем обертки вида ["..."]
+        if (text.startsWith('["') && text.endsWith('"]')) {
+          return text.slice(2, -2)
+        }
+        return text
+      }
+
+      const extractFrappeMessage = (errorData: any): string | null => {
+        try {
+          // Приоритет: _server_messages
+          if (typeof errorData?._server_messages === 'string') {
+            const msgs = JSON.parse(errorData._server_messages)
+            if (Array.isArray(msgs) && msgs.length) {
+              const last = msgs[msgs.length - 1]
+              try {
+                const obj = JSON.parse(last)
+                if (obj?.message) return String(obj.message)
+              } catch {
+                return String(last)
+              }
+            }
+          }
+        } catch {
+          // ignore
+        }
+        return null
+      }
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const data = JSON.parse(xhr.responseText)
+            resolve(data.message || data)
+          } catch (e) {
+            reject(new Error(`Failed to parse response: ${xhr.responseText}`))
+          }
+        } else {
+          let errorMessage = `API call failed: ${xhr.status} ${xhr.statusText}`
+          let structuredError: { source: 'our_side' | 'lexdoc'; message: string } | null = null
+          
+          try {
+            const errorData = JSON.parse(xhr.responseText)
+            const serverMsg = extractFrappeMessage(errorData)
+            // Выбираем лучший текст ошибки: сначала _server_messages, затем message/exception/exc,
+            // но НЕ перетираем _server_messages traceback-ом.
+            let rawText: string | null = serverMsg || null
+
+            if (errorData.message) {
+              const candidate = Array.isArray(errorData.message)
+                ? errorData.message.join('\n')
+                : String(errorData.message)
+
+              const looksLikeTraceback =
+                typeof candidate === 'string' && candidate.includes('Traceback (most recent call last)')
+
+              const looksUseless =
+                candidate.trim() === '' ||
+                candidate.trim() === '}' ||
+                candidate.trim() === 'null' ||
+                candidate.trim() === 'undefined'
+
+              // Если уже есть serverMsg (обычно _server_messages) — НЕ перетираем его мусором вроде "}"
+              if ((!rawText || (!looksLikeTraceback && !looksUseless)) && !looksLikeTraceback && !looksUseless) {
+                rawText = candidate
+              }
+            } else if (errorData.exception) {
+              rawText = String(errorData.exception)
+            } else if (errorData.exc) {
+              rawText = String(errorData.exc)
+            }
+
+            if (rawText) {
+              const parseStructured = (
+                text: string,
+                prefix: 'LEXDOC_ERROR:' | 'OUR_ERROR:'
+              ): { source: 'lexdoc' | 'our_side'; message: string } | null => {
+                const idx = text.indexOf(prefix)
+                if (idx === -1) return null
+                const after = text.slice(idx + prefix.length)
+                const firstBrace = after.indexOf('{')
+                const lastBrace = after.lastIndexOf('}')
+                if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) return null
+                const jsonStr = after.slice(firstBrace, lastBrace + 1)
+                try {
+                  const obj = JSON.parse(jsonStr)
+                  const msg = typeof obj?.message === 'string' ? obj.message : text
+                  return {
+                    source: prefix === 'LEXDOC_ERROR:' ? 'lexdoc' : 'our_side',
+                    message: msg,
+                  }
+                } catch {
+                  return null
+                }
+              }
+
+              structuredError =
+                parseStructured(rawText, 'LEXDOC_ERROR:') ||
+                parseStructured(rawText, 'OUR_ERROR:')
+
+              if (structuredError) {
+                errorMessage = structuredError.message
+              } else {
+                errorMessage = rawText
+              }
+            }
+          } catch {
+            if (xhr.responseText) {
+              errorMessage = xhr.responseText
+            }
+          }
+
+          errorMessage = sanitizeErrorText(errorMessage)
+          
+          // Создаем Error с дополнительной информацией об источнике
+          const error = new Error(errorMessage)
+          if (structuredError) {
+            ;(error as any).source = structuredError.source
+            ;(error as any).structuredError = structuredError
+            // Используем сообщение из структурированной ошибки
+            error.message = structuredError.message || errorMessage
+          }
+          reject(error)
+        }
+      }
+
+      xhr.onerror = () => {
+        reject(new Error('Network error'))
+      }
+
+      xhr.ontimeout = () => {
+        reject(new Error('Request timeout'))
+      }
+
+      xhr.send(args ? JSON.stringify(args) : '{}')
     })
-
-    if (!response.ok) {
-      throw new Error(`API call failed: ${response.statusText}`)
-    }
-
-    const data = await response.json()
-    return data.message
   }
 
   async getDocuments(filters?: {
@@ -421,14 +563,17 @@ class FrappeAPI {
     return this.call('edo.edo.doctype.edo_document.edo_document.update_document', { name, ...doc })
   }
 
-  async canEditDocument(): Promise<boolean> {
-    return this.call('edo.edo.doctype.edo_document.edo_document.can_edit_document')
+  async canEditDocument(documentName?: string): Promise<boolean> {
+    return this.call('edo.edo.doctype.edo_document.edo_document.can_edit_document', {
+      document_name: documentName
+    })
   }
 
-  async directorApproveDocument(name: string, comment?: string): Promise<EDODocument> {
+  async directorApproveDocument(name: string, comment?: string, signature?: string): Promise<EDODocument> {
     return this.call('edo.edo.doctype.edo_document.edo_document.director_approve_document', {
       name,
       comment,
+      signature,
     })
   }
 
@@ -443,6 +588,13 @@ class FrappeAPI {
     return this.call('edo.edo.doctype.edo_document.edo_document.executor_sign_document', {
       name,
       comment,
+    })
+  }
+
+  async signDocumentWithPkcs7(name: string, pkcs7: string): Promise<{ success: boolean; new_file_url: string; message: string }> {
+    return this.call('edo.edo.doctype.edo_document.edo_document.sign_document_with_pkcs7', {
+      document_name: name,
+      pkcs7,
     })
   }
 

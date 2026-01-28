@@ -4,6 +4,10 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './i18n/config'
 import './index.css'
 import App from './App.tsx'
+import { initEImzo } from './vendors/e-imzo-func'
+
+// Инициализация e-imzo при старте приложения
+initEImzo()
 
 // Create a client
 const queryClient = new QueryClient({

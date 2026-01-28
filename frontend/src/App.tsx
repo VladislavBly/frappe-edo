@@ -5,6 +5,7 @@ import { AnimatePresence } from 'framer-motion'
 import { Sidebar } from './components/Sidebar'
 import { Header } from './components/Header'
 import { HeaderProvider, useHeader } from './contexts/HeaderContext'
+import { ToastProvider } from './components/ui/toast'
 import { DashboardPage, DocumentsPage } from './pages'
 import { api } from './lib/api'
 
@@ -95,9 +96,11 @@ function AppContent() {
 function App() {
   return (
     <HashRouter>
-      <HeaderProvider>
-        <AppContent />
-      </HeaderProvider>
+      <ToastProvider>
+        <HeaderProvider>
+          <AppContent />
+        </HeaderProvider>
+      </ToastProvider>
     </HashRouter>
   )
 }

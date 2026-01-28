@@ -610,13 +610,21 @@ def update_document(name, **kwargs):
 
 	# Check if user has permission to edit documents
 	user_roles = frappe.get_roles(user)
-	can_edit = "EDO Admin" in user_roles or "EDO Manager" in user_roles or "EDO Director" in user_roles
+	is_admin = "EDO Admin" in user_roles
 	
-	if not can_edit:
-		frappe.throw("You don't have permission to edit documents", frappe.PermissionError)
-
 	# Get document
 	doc = frappe.get_doc("EDO Document", name)
+	
+	# Проверяем, можно ли редактировать этот документ
+	# Если документ уже не в статусе "Новый" или есть подписи, редактирование закрыто для всех кроме админа
+	if not is_admin:
+		if doc.status != "Новый" or (doc.signatures and len(doc.signatures) > 0):
+			frappe.throw("Документ уже подписан или обработан. Редактирование доступно только администратору.", frappe.PermissionError)
+		
+		# Проверяем базовые права на редактирование
+		can_edit = "EDO Manager" in user_roles or "EDO Director" in user_roles
+		if not can_edit:
+			frappe.throw("You don't have permission to edit documents", frappe.PermissionError)
 
 	# Update fields
 	# Status cannot be changed manually - it's set automatically by workflow
@@ -651,7 +659,7 @@ def update_document(name, **kwargs):
 
 
 @frappe.whitelist()
-def can_edit_document():
+def can_edit_document(document_name=None):
 	"""Check if current user can edit documents"""
 	user = frappe.session.user
 
@@ -659,8 +667,25 @@ def can_edit_document():
 		return False
 
 	user_roles = frappe.get_roles(user)
-	# Admin, Manager, and Director can edit documents
-	can_edit = "EDO Admin" in user_roles or "EDO Manager" in user_roles or "EDO Director" in user_roles
+	is_admin = "EDO Admin" in user_roles
+	
+	# Админ всегда может редактировать
+	if is_admin:
+		return True
+	
+	# Если указан конкретный документ, проверяем его статус
+	if document_name:
+		try:
+			doc = frappe.get_doc("EDO Document", document_name)
+			# Если документ уже не в статусе "Новый" или есть подписи, редактирование закрыто для всех кроме админа
+			if doc.status != "Новый" or (doc.signatures and len(doc.signatures) > 0):
+				return False
+		except Exception:
+			# Если документ не найден, возвращаем базовую проверку
+			pass
+	
+	# Manager и Director могут редактировать только новые документы
+	can_edit = "EDO Manager" in user_roles or "EDO Director" in user_roles
 	return can_edit
 
 
@@ -890,7 +915,14 @@ def can_reception_submit():
 		return False
 
 	user_roles = frappe.get_roles(user)
-	return "EDO Reception" in user_roles or "EDO Admin" in user_roles
+	result = "EDO Reception" in user_roles
+
+	# Debug log
+	frappe.log_error(f"can_reception_submit: user={user}, roles={user_roles}, result={result}", "permission_debug")
+
+	# Только роль Reception может обрабатывать документы в приемной
+	# Admin не должен иметь доступ к этой функции
+	return result
 
 
 @frappe.whitelist()
@@ -912,7 +944,7 @@ def reception_submit_to_director(name, resolution=None, resolution_text=None, ex
 
 	# Check if user has Reception role
 	user_roles = frappe.get_roles(user)
-	if "EDO Reception" not in user_roles and "EDO Admin" not in user_roles:
+	if "EDO Reception" not in user_roles:
 		frappe.throw("Only Reception can submit documents to director", frappe.PermissionError)
 
 	# Get document
@@ -1131,6 +1163,7 @@ def get_stamp_image(file_url: str):
 def get_pdf_info(document_name):
 	"""Get PDF metadata (page count, dimensions) for a document"""
 	import io
+	import os
 	from pypdf import PdfReader
 
 	user = frappe.session.user
@@ -1146,7 +1179,14 @@ def get_pdf_info(document_name):
 	# Get file path
 	file_path = get_file_path(doc.main_document)
 
-	if not file_path or not file_path.lower().endswith('.pdf'):
+	if not file_path:
+		frappe.throw("Main document file could not be resolved")
+
+	if not os.path.exists(file_path):
+		frappe.throw(f"PDF file not found: {file_path}", frappe.NotFound)
+
+	# Не полагаемся на расширение файла — проверяем сигнатуру PDF по содержимому
+	if not is_pdf_file(file_path):
 		frappe.throw("Main document is not a PDF file")
 
 	# Read PDF
@@ -1239,13 +1279,13 @@ def apply_stamps_to_pdf(document_name, stamps):
 		# Важно: main_document может быть уже штампованным файлом, это нормально
 		pdf_path = get_file_path(doc.main_document)
 
-		if not pdf_path or not pdf_path.lower().endswith('.pdf'):
+		if not pdf_path:
 			frappe.log_error(
 				f"Invalid PDF path for document {document_name}: main_document={doc.main_document}, "
 				f"resolved_path={pdf_path}",
 				"apply_stamps_path_error"
 			)
-			frappe.throw("Main document is not a PDF file", frappe.ValidationError)
+			frappe.throw("Main document file could not be resolved", frappe.ValidationError)
 
 		if not os.path.exists(pdf_path):
 			frappe.log_error(
@@ -1255,6 +1295,14 @@ def apply_stamps_to_pdf(document_name, stamps):
 			)
 			frappe.throw(f"PDF file not found: {pdf_path}", frappe.NotFound)
 		
+		# Быстрая проверка PDF по сигнатуре. Расширение может отсутствовать.
+		if not is_pdf_file(pdf_path):
+			frappe.log_error(
+				f"File is not a PDF by signature: {pdf_path} for document {document_name}, "
+				f"main_document={doc.main_document}",
+				"apply_stamps_not_pdf_error"
+			)
+			frappe.throw("Main document is not a PDF file", frappe.ValidationError)
 
 		# Read original PDF
 		try:
@@ -2115,10 +2163,16 @@ def get_file_path(file_url):
 
 	# Сначала пытаемся найти файл через File doctype
 	from frappe.core.doctype.file.utils import find_file_by_url
-	
+	from urllib.parse import urlparse
+
+	# Если передан полный URL (http://...), извлекаем только path
+	if file_url.startswith('http://') or file_url.startswith('https://'):
+		parsed = urlparse(file_url)
+		file_url = parsed.path  # /files/test_document.pdf
+
 	# Нормализуем URL - добавляем / если нужно
 	normalized_url = file_url if file_url.startswith('/') else '/' + file_url
-	
+
 	try:
 		file_doc = find_file_by_url(normalized_url)
 		if file_doc:
@@ -2126,7 +2180,7 @@ def get_file_path(file_url):
 			return file_doc.get_full_path()
 	except:
 		pass
-	
+
 	# Fallback: пытаемся найти по file_url в базе данных
 	try:
 		file_name = frappe.db.get_value("File", {"file_url": normalized_url}, "name")
@@ -2150,6 +2204,15 @@ def get_file_path(file_url):
 		return frappe.get_site_path('public', file_url)
 
 	return None
+
+
+def is_pdf_file(file_path: str) -> bool:
+	"""Return True if file looks like a PDF by magic header (%PDF-)."""
+	try:
+		with open(file_path, "rb") as f:
+			return f.read(5) == b"%PDF-"
+	except Exception:
+		return False
 
 
 @frappe.whitelist()
@@ -2202,3 +2265,574 @@ def make_all_document_files_public():
 		"message": f"Updated {updated_count} files to public",
 		"updated_count": updated_count
 	}
+
+
+@frappe.whitelist()
+def sign_document_with_pkcs7(document_name, pkcs7):
+	"""
+	Подписать PDF документ с помощью PKCS7 подписи.
+	
+	Args:
+		document_name: Имя документа EDO Document
+		pkcs7: PKCS7 подпись в Base64
+	
+	Returns:
+		{success: True, new_file_url: "...", message: "..."}
+	"""
+	import io
+	import os
+	import traceback
+	import base64
+	import requests
+	from frappe.core.doctype.file.utils import get_content_hash
+	
+	try:
+		user = frappe.session.user
+		if not user or user == "Guest":
+			frappe.throw("Not authorized", frappe.PermissionError)
+
+		# Check permission
+		user_roles = frappe.get_roles(user)
+		can_sign = any(role in user_roles for role in ["EDO Admin", "EDO Manager", "EDO Director"])
+		if not can_sign:
+			frappe.throw("You don't have permission to sign documents", frappe.PermissionError)
+
+		# Проверяем параметры (ошибки нашей стороны)
+		if not document_name:
+			error_obj = frappe._dict({
+				"message": "Не указан документ для подписания",
+				"source": "our_side",
+				"error_type": "validation"
+			})
+			frappe.throw(f"OUR_ERROR:{frappe.as_json(error_obj)}", frappe.ValidationError)
+		
+		if not pkcs7:
+			error_obj = frappe._dict({
+				"message": "Не указана PKCS7 подпись",
+				"source": "our_side",
+				"error_type": "validation"
+			})
+			frappe.throw(f"OUR_ERROR:{frappe.as_json(error_obj)}", frappe.ValidationError)
+		
+		# Проверяем размер pkcs7 (не должен быть слишком большим)
+		if len(pkcs7) > 10 * 1024 * 1024:  # 10 MB
+			error_obj = frappe._dict({
+				"message": "PKCS7 подпись слишком большая (максимум 10 MB)",
+				"source": "our_side",
+				"error_type": "validation"
+			})
+			frappe.throw(f"OUR_ERROR:{frappe.as_json(error_obj)}", frappe.ValidationError)
+
+		# Get document
+		try:
+			doc = frappe.get_doc("EDO Document", document_name)
+		except Exception as e:
+			frappe.log_error(f"Failed to get document {document_name}: {str(e)}\n{traceback.format_exc()}", "sign_document_doc_error")
+			error_obj = frappe._dict({
+				"message": f"Документ не найден: {document_name}",
+				"source": "our_side",
+				"error_type": "not_found"
+			})
+			frappe.throw(f"OUR_ERROR:{frappe.as_json(error_obj)}", frappe.NotFound)
+
+		if not doc.main_document:
+			error_obj = frappe._dict({
+				"message": "У документа нет PDF файла для подписания",
+				"source": "our_side",
+				"error_type": "validation"
+			})
+			frappe.throw(f"OUR_ERROR:{frappe.as_json(error_obj)}", frappe.ValidationError)
+
+		# Get PDF file path
+		pdf_path = get_file_path(doc.main_document)
+		if not pdf_path:
+			frappe.log_error(
+				f"Invalid PDF path for document {document_name}: main_document={doc.main_document}",
+				"sign_document_path_error"
+			)
+			error_obj = frappe._dict({
+				"message": "Не удалось найти файл документа",
+				"source": "our_side",
+				"error_type": "file_not_found"
+			})
+			frappe.throw(f"OUR_ERROR:{frappe.as_json(error_obj)}", frappe.ValidationError)
+
+		if not os.path.exists(pdf_path):
+			frappe.log_error(
+				f"PDF file not found at path: {pdf_path} for document {document_name}",
+				"sign_document_file_error"
+			)
+			error_obj = frappe._dict({
+				"message": f"PDF файл не найден по пути: {pdf_path}",
+				"source": "our_side",
+				"error_type": "file_not_found"
+			})
+			frappe.throw(f"OUR_ERROR:{frappe.as_json(error_obj)}", frappe.NotFound)
+		
+		# Read original PDF
+		try:
+			with open(pdf_path, 'rb') as f:
+				original_pdf_bytes = f.read()
+		except Exception as e:
+			frappe.log_error(f"Failed to read PDF file {pdf_path}: {str(e)}\n{traceback.format_exc()}", "sign_document_read_error")
+			error_obj = frappe._dict({
+				"message": f"Не удалось прочитать PDF файл: {str(e)[:100]}",
+				"source": "our_side",
+				"error_type": "file_read_error"
+			})
+			frappe.throw(f"OUR_ERROR:{frappe.as_json(error_obj)}", frappe.ValidationError)
+
+		# Конвертируем PDF в Base64 для отправки на LexDoc API
+		pdf_base64 = base64.b64encode(original_pdf_bytes).decode('utf-8')
+		
+		# Проверяем размеры данных
+		pdf_size_mb = len(pdf_base64) / (1024 * 1024)
+		pkcs7_size_mb = len(pkcs7) / (1024 * 1024)
+		total_size_mb = pdf_size_mb + pkcs7_size_mb
+		
+		if total_size_mb > 50:  # Если общий размер больше 50MB
+			frappe.log_error(
+				f"Data too large for LexDoc API: PDF={pdf_size_mb:.2f}MB, PKCS7={pkcs7_size_mb:.2f}MB, Total={total_size_mb:.2f}MB",
+				"sign_document_lexdoc_size_error"
+			)
+			error_obj = frappe._dict({
+				"message": f"Размер данных слишком большой для отправки ({total_size_mb:.2f}MB). Максимум 50MB.",
+				"source": "our_side",
+				"error_type": "validation"
+			})
+			frappe.throw(f"OUR_ERROR:{frappe.as_json(error_obj)}", frappe.ValidationError)
+		
+		# Получаем URL LexDoc API из настроек (или используем дефолтный)
+		lexdoc_api_url = frappe.conf.get('lexdoc_api_url', 'https://oddo.tcld.uz/api/method/lexdoc.lexdoc.api.process_pdf_with_qr_code')
+		
+		# Отправляем PDF и PKCS7 подпись на LexDoc API согласно документации
+		# LexDoc обработает PDF, вставит QR код и вернет подписанный PDF
+		try:
+			# Подготавливаем данные запроса
+			document_title = doc.title if hasattr(doc, 'title') and doc.title else doc.name
+			
+			request_data = {
+				"pdf_base64": pdf_base64,
+				"pkcs7_base64": pkcs7,
+				"document_id": document_name,  # Используем имя документа как ID
+				"document_title": str(document_title),  # Убеждаемся что это строка
+				"position": "bottom-right",  # Позиция QR кода
+				"qr_size": 100,  # Размер QR кода
+				"page_number": 1,  # Первая страница
+			}
+			
+			# Логируем информацию о запросе (используем старый формат как в остальном коде)
+			detailed_msg = (
+				f"LexDoc API request\n"
+				f"URL: {lexdoc_api_url}\n"
+				f"PDF size: {pdf_size_mb:.2f}MB ({len(pdf_base64)} chars)\n"
+				f"PKCS7 size: {pkcs7_size_mb:.2f}MB ({len(pkcs7)} chars)\n"
+				f"Document: {document_name}"
+			)
+			# Используем старый формат: log_error(message, method) где method используется как reference_doctype
+			frappe.log_error(detailed_msg, "sign_document_lexdoc_request")
+			
+			response = requests.post(
+				lexdoc_api_url,
+				json=request_data,
+				headers={
+					"Content-Type": "application/json",
+					"Accept": "application/json"
+				},
+				timeout=60  # Увеличиваем timeout для обработки PDF
+			)
+			
+			if response.status_code != 200:
+				error_text = response.text[:2000] if len(response.text) > 2000 else response.text
+				# Логируем детальную информацию об ошибке
+				error_details = (
+					f"LexDoc API error {response.status_code}\n"
+					f"URL: {lexdoc_api_url}\n"
+					f"Response headers: {dict(response.headers)}\n"
+					f"Response text: {error_text}\n"
+					f"PDF size: {len(pdf_base64)} chars ({len(original_pdf_bytes)} bytes)\n"
+					f"PKCS7 size: {len(pkcs7)} chars"
+				)
+				frappe.log_error(error_details, "sign_document_lexdoc_error")
+				
+				# Выводим ошибку в консоль для отладки
+				print(f"\n{'='*80}")
+				print(f"LEXDOC API ERROR {response.status_code}")
+				print(f"{'='*80}")
+				print(f"URL: {lexdoc_api_url}")
+				print(f"Status Code: {response.status_code}")
+				print(f"Response Headers: {dict(response.headers)}")
+				print(f"Response Text: {error_text}")
+				print(f"PDF Base64 size: {len(pdf_base64)} chars")
+				print(f"PDF Binary size: {len(original_pdf_bytes)} bytes")
+				print(f"PKCS7 Base64 size: {len(pkcs7)} chars")
+				print(f"{'='*80}\n")
+				
+				# Формируем структурированное сообщение об ошибке LexDoc
+				try:
+					error_json = response.json()
+					error_message = error_json.get('message', error_json.get('exception', error_text[:200]))
+				except:
+					error_message = error_text[:200]
+				
+				# Определяем тип ошибки и формируем сообщение
+				if response.status_code == 417:
+					user_msg = f"LexDoc API отклонил запрос (417). {error_message}"
+					error_source = "lexdoc"
+				elif response.status_code == 404:
+					user_msg = f"LexDoc API endpoint не найден (404)"
+					error_source = "lexdoc"
+				elif response.status_code >= 500:
+					user_msg = f"Ошибка сервера LexDoc API (код {response.status_code})"
+					error_source = "lexdoc"
+				else:
+					user_msg = f"Ошибка LexDoc API (код {response.status_code}): {error_message}"
+					error_source = "lexdoc"
+				
+				# Бросаем исключение с информацией об источнике ошибки
+				error_obj = frappe._dict({
+					"message": user_msg,
+					"source": error_source,
+					"status_code": response.status_code,
+					"error_details": error_message
+				})
+				frappe.throw(f"LEXDOC_ERROR:{frappe.as_json(error_obj)}", frappe.ValidationError)
+			
+			try:
+				result = response.json()
+			except ValueError as json_error:
+				error_text = response.text[:2000] if len(response.text) > 2000 else response.text
+				error_details = (
+					f"LexDoc API returned non-JSON response\n"
+					f"Status: {response.status_code}\n"
+					f"Response: {error_text}\n"
+					f"JSON parse error: {str(json_error)}"
+				)
+				frappe.log_error(error_details, "sign_document_lexdoc_error")
+				print(f"\n{'='*80}")
+				print(f"LEXDOC API NON-JSON RESPONSE")
+				print(f"{'='*80}")
+				print(f"Status: {response.status_code}")
+				print(f"Response: {error_text}")
+				print(f"{'='*80}\n")
+				error_obj = frappe._dict({
+					"message": f"LexDoc API вернул некорректный ответ (не JSON): {str(error_text)[:300]}",
+					"source": "lexdoc",
+					"error_type": "non_json",
+					"status_code": response.status_code
+				})
+				frappe.throw(f"LEXDOC_ERROR:{frappe.as_json(error_obj)}", frappe.ValidationError)
+
+			# LexDoc API может вернуть ответ в "frappe-стиле": {"message": {...}}
+			payload = result
+			try:
+				if isinstance(result, dict) and isinstance(result.get("message"), dict):
+					payload = result.get("message")
+			except Exception:
+				payload = result
+
+			# Успешность
+			ok_flag = False
+			try:
+				ok_flag = bool(payload.get("ok")) if isinstance(payload, dict) else False
+			except Exception:
+				ok_flag = False
+
+			if not ok_flag:
+				raw_error_msg = result.get("message") or result.get("exception") or result.get("error") or "Unknown error"
+				# Если LexDoc внезапно вернул объект вместо строки — не роняемся и не тащим pdf_base64 в ошибку
+				if not isinstance(raw_error_msg, str):
+					raw_error_msg = "LexDoc вернул ошибку обработки PDF"
+
+				# Короткое резюме ответа без больших полей
+				result_summary = {}
+				try:
+					if isinstance(result, dict):
+						result_summary = {k: v for k, v in result.items() if k not in ("pdf_base64", "pkcs7_base64")}
+						if "pdf_base64" in result and isinstance(result.get("pdf_base64"), str):
+							result_summary["pdf_base64_len"] = len(result.get("pdf_base64"))
+						if "pkcs7_base64" in result and isinstance(result.get("pkcs7_base64"), str):
+							result_summary["pkcs7_base64_len"] = len(result.get("pkcs7_base64"))
+				except Exception:
+					result_summary = {"note": "failed to summarize result"}
+
+				error_details = (
+					f"LexDoc processing failed\n"
+					f"Message: {raw_error_msg}\n"
+					f"Response summary: {result_summary}"
+				)
+				frappe.log_error(error_details, "sign_document_lexdoc_error")
+				print(f"\n{'='*80}")
+				print(f"LEXDOC API PROCESSING FAILED")
+				print(f"{'='*80}")
+				print(f"Message: {raw_error_msg}")
+				print(f"Response summary: {result_summary}")
+				print(f"{'='*80}\n")
+				error_obj = frappe._dict({
+					"message": f"Ошибка обработки PDF в LexDoc: {str(raw_error_msg)[:300]}",
+					"source": "lexdoc",
+					"error_type": "processing_failed",
+					"error_details": str(raw_error_msg)[:400]
+				})
+				frappe.throw(f"LEXDOC_ERROR:{frappe.as_json(error_obj)}", frappe.ValidationError)
+			
+			# Извлекаем подписанный PDF с QR кодом из ответа
+			signed_pdf_base64 = payload.get("pdf_base64") if isinstance(payload, dict) else None
+			if not signed_pdf_base64:
+				frappe.log_error("LexDoc API не вернул PDF в ответе", "sign_document_lexdoc_error")
+				error_obj = frappe._dict({
+					"message": "LexDoc API не вернул PDF в ответе",
+					"source": "lexdoc",
+					"error_type": "missing_response"
+				})
+				frappe.throw(f"LEXDOC_ERROR:{frappe.as_json(error_obj)}", frappe.ValidationError)
+			
+			# Декодируем PDF из Base64
+			signed_pdf_bytes = base64.b64decode(signed_pdf_base64)
+			
+			# Логируем успешную обработку
+			verification_url = payload.get("verification_url", "") if isinstance(payload, dict) else ""
+			if verification_url:
+				frappe.log_error(f"LexDoc processed PDF successfully\nVerification URL: {verification_url}", "sign_document_lexdoc_success")
+			else:
+				frappe.log_error("LexDoc processed PDF successfully", "sign_document_lexdoc_success")
+			
+		except requests.exceptions.Timeout as e:
+			error_msg = str(e)[:100]
+			frappe.log_error(f"LexDoc API timeout\nTimeout: {error_msg}\nURL: {lexdoc_api_url}", "sign_document_lexdoc_timeout")
+			error_obj = frappe._dict({
+				"message": "Превышено время ожидания ответа от LexDoc API. Попробуйте позже.",
+				"source": "lexdoc",
+				"error_type": "timeout"
+			})
+			frappe.throw(f"LEXDOC_ERROR:{frappe.as_json(error_obj)}", frappe.ValidationError)
+		except requests.exceptions.ConnectionError as e:
+			error_msg = str(e)[:100]
+			frappe.log_error(f"LexDoc API connection error\nConnection error: {error_msg}\nURL: {lexdoc_api_url}", "sign_document_lexdoc_connection_error")
+			error_obj = frappe._dict({
+				"message": "Не удалось подключиться к LexDoc API. Проверьте доступность сервиса.",
+				"source": "lexdoc",
+				"error_type": "connection"
+			})
+			frappe.throw(f"LEXDOC_ERROR:{frappe.as_json(error_obj)}", frappe.ValidationError)
+		except requests.exceptions.RequestException as e:
+			# Если LexDoc API недоступен, логируем ошибку и бросаем исключение
+			error_msg = str(e)[:200]
+			frappe.log_error(f"LexDoc API request error\nRequest error: {error_msg}\nURL: {lexdoc_api_url}", "sign_document_lexdoc_request_error")
+			error_obj = frappe._dict({
+				"message": f"Ошибка запроса к LexDoc API: {str(e)[:150]}",
+				"source": "lexdoc",
+				"error_type": "request"
+			})
+			frappe.throw(f"LEXDOC_ERROR:{frappe.as_json(error_obj)}", frappe.ValidationError)
+		except frappe.ValidationError as e:
+			# Пробрасываем ValidationError как есть (уже содержит структурированную ошибку)
+			raise
+		except Exception as e:
+			error_msg = str(e)[:200]
+			frappe.log_error(f"LexDoc unexpected error\nError: {error_msg}\n{traceback.format_exc()}", "sign_document_lexdoc_error")
+			# Проверяем, не является ли это ошибкой нашей стороны
+			if "BytesIO" in str(e) or "expected str" in str(e):
+				# Это ошибка LexDoc API
+				error_obj = frappe._dict({
+					"message": f"Ошибка обработки на стороне LexDoc API: {error_msg[:150]}",
+					"source": "lexdoc",
+					"error_type": "processing"
+				})
+				frappe.throw(f"LEXDOC_ERROR:{frappe.as_json(error_obj)}", frappe.ValidationError)
+			else:
+				# Это ошибка нашей стороны
+				error_obj = frappe._dict({
+					"message": f"Ошибка при подготовке данных для LexDoc: {error_msg[:150]}",
+					"source": "our_side",
+					"error_type": "internal"
+				})
+				frappe.throw(f"OUR_ERROR:{frappe.as_json(error_obj)}", frappe.ValidationError)
+
+		# Generate unique filenames using content hash
+		import re
+		original_filename = os.path.basename(pdf_path)
+		name_without_ext = os.path.splitext(original_filename)[0]
+		clean_name = re.sub(r'(_signed_[a-f0-9]+|_original_[a-f0-9]+)+$', '', name_without_ext)
+		if not clean_name:
+			clean_name = "document"
+
+		max_base_length = 140 - 22
+		if len(clean_name) > max_base_length:
+			clean_name = clean_name[:max_base_length]
+
+		# Calculate hashes
+		original_content_hash = get_content_hash(original_pdf_bytes)
+		original_hash_suffix = original_content_hash[-8:]
+		original_backup_filename = f"{clean_name}_original_{original_hash_suffix}.pdf"
+
+		signed_content_hash = get_content_hash(signed_pdf_bytes)
+		signed_hash_suffix = signed_content_hash[-8:]
+		signed_filename = f"{clean_name}_signed_{signed_hash_suffix}.pdf"
+
+		# Save original to attachments (backup)
+		try:
+			original_backup_file = frappe.get_doc({
+				"doctype": "File",
+				"file_name": original_backup_filename,
+				"content": original_pdf_bytes,
+				"attached_to_doctype": "EDO Document",
+				"attached_to_name": document_name,
+				"is_private": 0
+			})
+			original_backup_file.save(ignore_permissions=True)
+
+			# Add original to attachments child table
+			doc.append("attachments", {
+				"attachment": original_backup_file.file_url,
+				"file_name": original_backup_filename
+			})
+			
+			doc.save(ignore_permissions=True)
+		except Exception as e:
+			frappe.log_error(f"Failed to save backup: {str(e)}\n{traceback.format_exc()}", "sign_document_backup_error")
+			# Continue even if backup fails
+
+		# Save signed version as new main document
+		try:
+			doc.reload()
+			
+			signed_file = frappe.get_doc({
+				"doctype": "File",
+				"file_name": signed_filename,
+				"content": signed_pdf_bytes,
+				"attached_to_doctype": "EDO Document",
+				"attached_to_name": document_name,
+				"is_private": 0
+			})
+			signed_file.save(ignore_permissions=True)
+			
+			# Verify file was created
+			signed_file_path = get_file_path(signed_file.file_url)
+			if not signed_file_path or not os.path.exists(signed_file_path):
+				frappe.log_error(
+					f"Signed file not found after save. URL: {signed_file.file_url}, Path: {signed_file_path}",
+					"sign_document_file_not_found"
+				)
+				error_obj = frappe._dict({
+					"message": "Не удалось сохранить подписанный файл",
+					"source": "our_side",
+					"error_type": "file_save_error"
+				})
+				frappe.throw(f"OUR_ERROR:{frappe.as_json(error_obj)}", frappe.ValidationError)
+			
+			# Replace main_document with signed version
+			old_main_document = doc.main_document
+			
+			# Remove old signed file from attachments if it exists
+			if old_main_document and ("_signed" in old_main_document or "_signed_" in old_main_document):
+				if doc.attachments:
+					attachments_to_keep = [
+						a for a in doc.attachments 
+						if a.get("attachment") != old_main_document
+					]
+					doc.set("attachments", attachments_to_keep)
+			
+			# Update main_document
+			doc.main_document = signed_file.file_url
+			
+			# После успешной подписи переходим по статусам как раньше
+			# Определяем, кто подписывает: директор или исполнитель
+			is_director = "EDO Director" in user_roles or "EDO Admin" in user_roles
+			is_executor = False
+			
+			# Проверяем, является ли пользователь исполнителем
+			if doc.executor == user:
+				is_executor = True
+			elif doc.co_executors:
+				for co_exec in doc.co_executors:
+					if co_exec.user == user:
+						is_executor = True
+						break
+			
+			# Логика перехода статусов
+			if is_director and doc.status == "На рассмотрении":
+				# Директор подписывает документ на рассмотрении
+				doc.director_approved = 1
+				doc.director_rejected = 0
+				doc.director_decision_date = frappe.utils.now()
+				# Если есть исполнитель, переводим в "На исполнении", иначе "Согласован"
+				if doc.executor:
+					doc.status = "На исполнении"
+				else:
+					doc.status = "Согласован"
+			elif is_executor and doc.status == "На исполнении":
+				# Исполнитель подписывает документ на исполнении
+				# Проверяем, не подписывал ли уже
+				already_signed = False
+				if doc.signatures:
+					for sig in doc.signatures:
+						if sig.user == user:
+							already_signed = True
+							break
+				
+				if not already_signed:
+					# Добавляем подпись
+					doc.append("signatures", {
+						"user": user,
+						"signed_at": frappe.utils.now(),
+						"comment": ""
+					})
+					
+					# Проверяем, все ли исполнители подписали
+					all_executors = []
+					if doc.executor:
+						all_executors.append(doc.executor)
+					if doc.co_executors:
+						for co_exec in doc.co_executors:
+							if co_exec.user:
+								all_executors.append(co_exec.user)
+					
+					signed_users = [sig.user for sig in doc.signatures] if doc.signatures else []
+					all_signed = all(user in signed_users for user in all_executors) if all_executors else False
+					
+					# Если все подписали, переводим в "Выполнено"
+					if all_signed:
+						doc.status = "Выполнено"
+			
+			doc.save(ignore_permissions=True)
+			
+			frappe.db.commit()
+		except Exception as e:
+			frappe.log_error(
+				f"Failed to save signed file: {str(e)}\n{traceback.format_exc()}",
+				"sign_document_save_error"
+			)
+			error_obj = frappe._dict({
+				"message": f"Не удалось сохранить подписанный PDF: {str(e)[:150]}",
+				"source": "our_side",
+				"error_type": "file_save_error"
+			})
+			frappe.throw(f"OUR_ERROR:{frappe.as_json(error_obj)}", frappe.ValidationError)
+
+		return {
+			"success": True,
+			"new_file_url": signed_file.file_url,
+			"message": "Документ подписан. Оригинал сохранён в вложениях."
+		}
+	except frappe.PermissionError:
+		raise
+	except frappe.NotFound:
+		raise
+	except frappe.ValidationError:
+		raise
+	except frappe.ValidationError:
+		# Пробрасываем ValidationError как есть (уже содержит структурированную ошибку)
+		raise
+	except Exception as e:
+		frappe.log_error(
+			f"Unexpected error in sign_document_with_pkcs7: {str(e)}\n{traceback.format_exc()}\n"
+			f"document_name: {document_name}",
+			"sign_document_unexpected_error"
+		)
+		error_obj = frappe._dict({
+			"message": f"Неожиданная ошибка при подписании документа: {str(e)[:150]}",
+			"source": "our_side",
+			"error_type": "unexpected"
+		})
+		frappe.throw(f"OUR_ERROR:{frappe.as_json(error_obj)}", frappe.ValidationError)

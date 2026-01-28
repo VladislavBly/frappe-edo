@@ -36,9 +36,43 @@ export function useStampPreview(stampName: string, documentName?: string) {
 export function usePdfInfo(documentName: string | null) {
   return useQuery({
     queryKey: stampKeys.pdfInfo(documentName || ''),
-    queryFn: () => api.getPdfInfo(documentName!),
+    queryFn: async () => {
+      try {
+        return await api.getPdfInfo(documentName!)
+      } catch (error: any) {
+        // Обрабатываем различные типы ошибок
+        const errorMessage = String(error?.message || '')
+        const errorString = String(error)
+        
+        // Игнорируем ошибку 417, ошибку "not a PDF file" или любые другие ошибки валидации
+        const isIgnorableError =
+          errorMessage.includes('417') ||
+          errorMessage.includes('EXPECTATION FAILED') ||
+          errorMessage.includes('Main document is not a PDF file') ||
+          errorMessage.includes('not a PDF') ||
+          errorMessage.includes('ValidationError') ||
+          errorMessage.includes('frappe.exceptions.ValidationError') ||
+          errorString.includes('Main document is not a PDF file') ||
+          errorString.includes('frappe.exceptions.ValidationError')
+        
+        if (isIgnorableError) {
+          // Тихая обработка - возвращаем дефолтные значения без ошибки
+          // Не логируем в консоль, чтобы не засорять
+          return {
+            page_count: 1,
+            pages: [{ width: 595, height: 842 }], // A4 размер по умолчанию
+          }
+        }
+        // Для других ошибок пробрасываем дальше
+        throw error
+      }
+    },
     enabled: !!documentName,
     staleTime: 5 * 60 * 1000, // 5 minutes
+    retry: false, // Не retry для ошибок
+    refetchOnWindowFocus: false,
+    // Не показываем ошибки в UI - они обрабатываются внутри
+    throwOnError: false,
   })
 }
 

@@ -19,7 +19,7 @@ def has_website_permission(doc, ptype, user, verbose=False):
 		return False
 
 	# Check if user has any EDO role
-	edo_roles = ["EDO User", "EDO Admin", "EDO Observer", "EDO Executor", "EDO Manager", "EDO Director"]
+	edo_roles = ["EDO User", "EDO Admin", "EDO Observer", "EDO Executor", "EDO Manager", "EDO Director", "EDO Reception"]
 	user_roles = frappe.get_roles(user)
 	
 	if any(role in user_roles for role in edo_roles):
@@ -37,7 +37,7 @@ def get_portal_documents(search=None, status=None, document_type=None, priority=
 		return []
 
 	# Check if user has any EDO role
-	edo_roles = ["EDO User", "EDO Admin", "EDO Observer", "EDO Executor", "EDO Manager", "EDO Director"]
+	edo_roles = ["EDO User", "EDO Admin", "EDO Observer", "EDO Executor", "EDO Manager", "EDO Director", "EDO Reception"]
 	user_roles = frappe.get_roles(user)
 	
 	if not any(role in user_roles for role in edo_roles):
@@ -47,10 +47,48 @@ def get_portal_documents(search=None, status=None, document_type=None, priority=
 	filters = []
 	
 	# Role-based filtering:
-	# - Manager and Director see ALL documents
+	# - Manager and Admin see ALL documents
+	# - Directors see only documents assigned to their reception office (where director_user = user)
+	# - Reception users see only documents of their reception office
 	# - Executors see only documents where they are executor or co-executor
 	#   AND only in status "На исполнении" or "Выполнено" (after director approval)
-	if "EDO Manager" not in user_roles and "EDO Director" not in user_roles and "EDO Admin" not in user_roles:
+	
+	# Filter for Directors - they see documents assigned to them OR documents in their reception office
+	director_reception_offices = []
+	if "EDO Director" in user_roles and "EDO Admin" not in user_roles:
+		# Find reception offices where this user is director
+		director_reception_offices = frappe.get_all(
+			"EDO Reception Office",
+			filters={"director": user},
+			pluck="name"
+		)
+		
+		if director_reception_offices:
+			# Directors see documents where director_user = user
+			# OR documents in their reception office with status "На рассмотрении"
+			# We'll handle OR logic after getting documents
+			filters.append(["director_user", "=", user])
+		else:
+			# If director is not assigned to any reception office, only show documents explicitly assigned
+			filters.append(["director_user", "=", user])
+	
+	# Filter for Reception users - they see only documents of their reception office
+	if "EDO Reception" in user_roles and "EDO Admin" not in user_roles:
+		# Find reception office for this user
+		reception_offices = frappe.get_all(
+			"EDO Reception Office User",
+			filters={"user": user, "parenttype": "EDO Reception Office"},
+			pluck="parent"
+		)
+		
+		if reception_offices:
+			# User belongs to one or more reception offices
+			filters.append(["reception_office", "in", reception_offices])
+		else:
+			# User doesn't belong to any reception office - return empty
+			return []
+	
+	if "EDO Manager" not in user_roles and "EDO Director" not in user_roles and "EDO Admin" not in user_roles and "EDO Reception" not in user_roles:
 		# For executors: filter by executor or co_executors AND status
 		# Executors should only see documents that are approved and ready for execution
 		# Get all documents where user is executor AND status is "На исполнении" or "Выполнено"
@@ -114,9 +152,39 @@ def get_portal_documents(search=None, status=None, document_type=None, priority=
 		filters=filters,
 		fields=["name", "title", "incoming_number", "incoming_date", "outgoing_number", "outgoing_date",
 			"document_type", "status", "priority", "correspondent", "brief_content", "creation", 
-			"executor", "director_approved", "director_rejected"],
+			"executor", "director_approved", "director_rejected", "reception_office"],
 		order_by="creation desc"
 	)
+	
+	# For Directors: also get documents from their reception office with status "На рассмотрении"
+	if director_reception_offices:
+		# Build additional filters for documents in reception office
+		additional_filters = []
+		
+		# Copy all filters except director_user
+		for f in filters:
+			if isinstance(f, list) and len(f) > 0 and f[0] != "director_user":
+				additional_filters.append(f)
+		
+		# Add reception office and status filters
+		additional_filters.append(["reception_office", "in", director_reception_offices])
+		additional_filters.append(["status", "=", "На рассмотрении"])
+		
+		additional_docs = frappe.get_all(
+			"EDO Document",
+			filters=additional_filters,
+			fields=["name", "title", "incoming_number", "incoming_date", "outgoing_number", "outgoing_date",
+				"document_type", "status", "priority", "correspondent", "brief_content", "creation", 
+				"executor", "director_approved", "director_rejected", "reception_office"],
+			order_by="creation desc"
+		)
+		
+		# Merge documents, avoiding duplicates
+		existing_names = {doc["name"] for doc in documents}
+		for doc in additional_docs:
+			if doc["name"] not in existing_names:
+				documents.append(doc)
+				existing_names.add(doc["name"])
 
 	# Apply search filter after getting documents (for OR search across multiple fields)
 	if search and search.strip():
@@ -155,7 +223,7 @@ def get_document(name):
 		frappe.throw("Not authorized", frappe.PermissionError)
 
 	# Check if user has any EDO role
-	edo_roles = ["EDO User", "EDO Admin", "EDO Observer", "EDO Executor", "EDO Manager", "EDO Director"]
+	edo_roles = ["EDO User", "EDO Admin", "EDO Observer", "EDO Executor", "EDO Manager", "EDO Director", "EDO Reception"]
 	user_roles = frappe.get_roles(user)
 	
 	if not any(role in user_roles for role in edo_roles):
@@ -164,10 +232,44 @@ def get_document(name):
 	# Get document
 	doc = frappe.get_doc("EDO Document", name)
 	
+	# For Directors: check if they can view this document
+	# Directors can see documents assigned to them OR documents in their reception office that are ready for review
+	if "EDO Director" in user_roles and "EDO Admin" not in user_roles:
+		# Check if document is assigned to this director
+		if doc.director_user and doc.director_user != user:
+			frappe.throw("No permission to view this document. It is assigned to a different director.", frappe.PermissionError)
+		
+		# If director_user is not set yet, check if director is assigned to the reception office
+		if not doc.director_user:
+			if doc.reception_office:
+				reception_office_doc = frappe.get_doc("EDO Reception Office", doc.reception_office)
+				if reception_office_doc.director != user:
+					frappe.throw("No permission to view this document. It belongs to a different reception office.", frappe.PermissionError)
+			else:
+				# Document has no reception office - director cannot view it
+				frappe.throw("No permission to view this document. It is not assigned to any reception office.", frappe.PermissionError)
+	
+	# For Reception users: check if they can view this document
+	# Reception users can only see documents of their reception office
+	if "EDO Reception" in user_roles and "EDO Admin" not in user_roles:
+		# Find reception office for this user
+		reception_offices = frappe.get_all(
+			"EDO Reception Office User",
+			filters={"user": user, "parenttype": "EDO Reception Office"},
+			pluck="parent"
+		)
+		
+		if not reception_offices:
+			frappe.throw("You are not assigned to any reception office", frappe.PermissionError)
+		
+		# Check if document belongs to user's reception office
+		if doc.reception_office not in reception_offices:
+			frappe.throw("No permission to view this document. It belongs to a different reception office.", frappe.PermissionError)
+	
 	# For executors: check if they can view this document
 	# Executors can only see documents where they are executor/co-executor
 	# AND only in status "На исполнении" or "Выполнено"
-	if "EDO Manager" not in user_roles and "EDO Director" not in user_roles and "EDO Admin" not in user_roles:
+	if "EDO Manager" not in user_roles and "EDO Director" not in user_roles and "EDO Admin" not in user_roles and "EDO Reception" not in user_roles:
 		# Check if user is executor or co-executor
 		is_executor = doc.executor == user
 		is_co_executor = False
@@ -189,8 +291,19 @@ def get_document(name):
 	if not has_website_permission(doc, "read", user):
 		frappe.throw("No permission to view document", frappe.PermissionError)
 	
-	# Get document as dict
+	# Get document as dict - All roles should see all fields (permissions already checked)
 	result = doc.as_dict()
+	
+	# Ensure all history-related fields are present (even if null) for frontend history display
+	# This ensures the history roadmap works correctly for all roles
+	history_fields = [
+		"reception_user", "reception_decision_date",
+		"director_user", "director_approved", "director_rejected", "director_decision_date",
+		"executor", "status"
+	]
+	for field in history_fields:
+		if field not in result:
+			result[field] = None
 	
 	# Expand Link fields to show names instead of just IDs
 	if doc.correspondent:
@@ -199,13 +312,25 @@ def get_document(name):
 		result["document_type_name"] = frappe.db.get_value("EDO Document Type", doc.document_type, "document_type_name") or doc.document_type
 	if doc.priority:
 		result["priority_name"] = frappe.db.get_value("EDO Priority", doc.priority, "priority_name") or doc.priority
+	# Status is now a Select field, no need for status_name (it was for Link field compatibility)
+	# Keeping status_name for backward compatibility but it's the same as status
 	if doc.status:
-		# Status is now a Select field, so status_name equals status
 		result["status_name"] = doc.status
 	if doc.classification:
 		result["classification_name"] = frappe.db.get_value("EDO Classification", doc.classification, "classification_name") or doc.classification
 	if doc.delivery_method:
 		result["delivery_method_name"] = frappe.db.get_value("EDO Delivery Method", doc.delivery_method, "delivery_method_name") or doc.delivery_method
+	
+	# Get resolution info if exists
+	if doc.resolution:
+		resolution_info = frappe.db.get_value("EDO Resolution", doc.resolution, ["resolution_name", "resolution_text"], as_dict=True)
+		if resolution_info:
+			result["resolution_name"] = resolution_info.get("resolution_name")
+			result["resolution_text_from_link"] = resolution_info.get("resolution_text")
+	
+	# If resolution_text was entered manually (not from link), include it
+	if doc.resolution_text and not doc.resolution:
+		result["resolution_text"] = doc.resolution_text
 
 	# Get executor info with full name and image
 	if doc.executor:
@@ -246,6 +371,46 @@ def get_document(name):
 		if director_info:
 			result["director_full_name"] = director_info.get("full_name") or doc.director_user
 			result["director_image"] = director_info.get("user_image")
+	
+	# Get reception info
+	if doc.reception_user:
+		reception_info = frappe.db.get_value("User", doc.reception_user, ["full_name", "user_image"], as_dict=True)
+		if reception_info:
+			result["reception_full_name"] = reception_info.get("full_name") or doc.reception_user
+			result["reception_image"] = reception_info.get("user_image")
+
+	# Process main_document URL - make it accessible with full URL
+	if doc.main_document:
+		main_doc_url = doc.main_document
+		
+		# If already a full URL, keep it
+		if main_doc_url.startswith("http://") or main_doc_url.startswith("https://"):
+			result["main_document"] = main_doc_url
+		else:
+			# Ensure URL starts with /
+			if not main_doc_url.startswith("/"):
+				main_doc_url = "/" + main_doc_url
+			
+			# Try to find file and make it public if it's private
+			try:
+				from frappe.core.doctype.file.utils import find_file_by_url
+				file = find_file_by_url(main_doc_url)
+				
+				if file and file.is_private:
+					# Make file public so it can be accessed in iframe
+					file.is_private = 0
+					file.save(ignore_permissions=True)
+					# Update file_url if it changed
+					if file.file_url != main_doc_url:
+						main_doc_url = file.file_url
+						if not main_doc_url.startswith("/"):
+							main_doc_url = "/" + main_doc_url
+			except:
+				pass  # Continue even if file not found
+			
+			# Get full URL for public files
+			full_url = frappe.utils.get_url(main_doc_url, full_address=True)
+			result["main_document"] = full_url
 
 	return result
 
@@ -259,7 +424,7 @@ def get_comments(doctype, docname):
 		frappe.throw("Not authorized", frappe.PermissionError)
 
 	# Check if user has any EDO role
-	edo_roles = ["EDO User", "EDO Admin", "EDO Observer", "EDO Executor", "EDO Manager", "EDO Director"]
+	edo_roles = ["EDO User", "EDO Admin", "EDO Observer", "EDO Executor", "EDO Manager", "EDO Director", "EDO Reception"]
 	user_roles = frappe.get_roles(user)
 	
 	if not any(role in user_roles for role in edo_roles):
@@ -271,14 +436,15 @@ def get_comments(doctype, docname):
 		if not has_website_permission(doc, "read", user):
 			frappe.throw("No permission to view document", frappe.PermissionError)
 
+	# Получаем все типы комментариев для истории (Comment, Workflow, Info, Created, Updated и т.д.)
 	comments = frappe.get_all(
 		"Comment",
 		filters={
 			"reference_doctype": doctype,
 			"reference_name": docname,
-			"comment_type": "Comment"
+			"comment_type": ["in", ["Comment", "Workflow", "Info", "Created", "Updated", "Submitted", "Cancelled"]]
 		},
-		fields=["name", "content", "comment_email", "comment_by", "creation", "owner"],
+		fields=["name", "content", "comment_email", "comment_by", "creation", "owner", "comment_type"],
 		order_by="creation asc"
 	)
 
@@ -294,7 +460,7 @@ def add_comment(doctype, docname, content):
 		frappe.throw("Not authorized", frappe.PermissionError)
 
 	# Check if user has any EDO role
-	edo_roles = ["EDO User", "EDO Admin", "EDO Observer", "EDO Executor", "EDO Manager", "EDO Director"]
+	edo_roles = ["EDO User", "EDO Admin", "EDO Observer", "EDO Executor", "EDO Manager", "EDO Director", "EDO Reception"]
 	user_roles = frappe.get_roles(user)
 	
 	if not any(role in user_roles for role in edo_roles):
@@ -405,23 +571,31 @@ def create_document(**kwargs):
 
 	# Create document - kwargs contains all the document fields
 	# Frappe will auto-generate the name based on autoname rule
+	doc = frappe.get_doc({
+		"doctype": "EDO Document",
+		**kwargs
+	})
+
 	try:
-		doc = frappe.get_doc({
-			"doctype": "EDO Document",
-			**kwargs
-		})
 		doc.insert(ignore_permissions=True)
 	except frappe.DuplicateEntryError as e:
 		# Если возникла ошибка дублирования, перегенерируем имя
 		# Это может произойти, если автоименование сгенерировало существующее имя
+		old_name = doc.name
 		frappe.log_error(
-			f"Duplicate entry: {doc.name}. Regenerating name.",
+			f"Duplicate entry: {old_name}. Regenerating name.",
 			"create_document_duplicate"
 		)
 		# Перегенерируем имя документа
 		doc.name = None
 		doc.set_new_name(force=True)
-		doc.insert(ignore_permissions=True)
+		try:
+			doc.insert(ignore_permissions=True)
+		except frappe.DuplicateEntryError:
+			# Если снова дубликат, добавляем timestamp для уникальности
+			import time
+			doc.name = f"EDO-{int(time.time())}"
+			doc.insert(ignore_permissions=True)
 
 	return doc.as_dict()
 
@@ -437,7 +611,7 @@ def update_document(name, **kwargs):
 	# Check if user has permission to edit documents
 	user_roles = frappe.get_roles(user)
 	can_edit = "EDO Admin" in user_roles or "EDO Manager" in user_roles or "EDO Director" in user_roles
-
+	
 	if not can_edit:
 		frappe.throw("You don't have permission to edit documents", frappe.PermissionError)
 
@@ -445,8 +619,18 @@ def update_document(name, **kwargs):
 	doc = frappe.get_doc("EDO Document", name)
 
 	# Update fields
+	# Status cannot be changed manually - it's set automatically by workflow
+	protected_fields = [
+		"status", "director_approved", "director_rejected", "director_user", "director_decision_date", 
+		"reception_user", "reception_decision_date"
+	]
+	
 	for key, value in kwargs.items():
 		if key not in ["name", "doctype", "creation", "modified", "owner"]:
+			# Prevent manual changes to protected workflow fields
+			if key in protected_fields:
+				frappe.throw(f"Field '{key}' cannot be changed manually. It is set automatically by the workflow.", frappe.ValidationError)
+			
 			if hasattr(doc, key):
 				# Handle child table (co_executors)
 				if key == "co_executors" and isinstance(value, list):
@@ -475,7 +659,9 @@ def can_edit_document():
 		return False
 
 	user_roles = frappe.get_roles(user)
-	return "EDO Admin" in user_roles or "EDO Manager" in user_roles or "EDO Director" in user_roles
+	# Admin, Manager, and Director can edit documents
+	can_edit = "EDO Admin" in user_roles or "EDO Manager" in user_roles or "EDO Director" in user_roles
+	return can_edit
 
 
 @frappe.whitelist()
@@ -486,22 +672,28 @@ def director_approve_document(name, comment=None):
 	if not user or user == "Guest":
 		frappe.throw("Not authorized", frappe.PermissionError)
 
-	# Check if user is Director
+	# Check if user is Director or Admin
 	user_roles = frappe.get_roles(user)
 	if "EDO Director" not in user_roles and "EDO Admin" not in user_roles:
 		frappe.throw("Only Director can approve documents", frappe.PermissionError)
 
 	# Get document
 	doc = frappe.get_doc("EDO Document", name)
+
+	# Check if document is in "На рассмотрении" status (after reception processed it)
+	if doc.status != "На рассмотрении":
+		frappe.throw("Document must be in 'На рассмотрении' status to be approved (Reception must process it first)", frappe.ValidationError)
 	
-	# Check if document is in "Новый" status
-	if doc.status != "Новый":
-		frappe.throw("Document must be in 'Новый' status to be approved", frappe.ValidationError)
+	# Check if this director is assigned to this document
+	# Admin can approve any document, but Director can only approve documents assigned to them
+	if "EDO Admin" not in user_roles:
+		if not doc.director_user or doc.director_user != user:
+			frappe.throw("You can only approve documents assigned to your reception office", frappe.PermissionError)
 
 	# Update document
 	doc.director_approved = 1
 	doc.director_rejected = 0
-	doc.director_user = user
+	# director_user is already set by reception_submit_to_director, don't override it
 	doc.director_decision_date = frappe.utils.now()
 	doc.director_comment = comment or ""
 	
@@ -525,22 +717,28 @@ def director_reject_document(name, comment=None):
 	if not user or user == "Guest":
 		frappe.throw("Not authorized", frappe.PermissionError)
 
-	# Check if user is Director
+	# Check if user is Director or Admin
 	user_roles = frappe.get_roles(user)
 	if "EDO Director" not in user_roles and "EDO Admin" not in user_roles:
 		frappe.throw("Only Director can reject documents", frappe.PermissionError)
 
 	# Get document
 	doc = frappe.get_doc("EDO Document", name)
+
+	# Check if document is in "На рассмотрении" status (after reception processed it)
+	if doc.status != "На рассмотрении":
+		frappe.throw("Document must be in 'На рассмотрении' status to be rejected (Reception must process it first)", frappe.ValidationError)
 	
-	# Check if document is in "Новый" status
-	if doc.status != "Новый":
-		frappe.throw("Document must be in 'Новый' status to be rejected", frappe.ValidationError)
+	# Check if this director is assigned to this document
+	# Admin can reject any document, but Director can only reject documents assigned to them
+	if "EDO Admin" not in user_roles:
+		if not doc.director_user or doc.director_user != user:
+			frappe.throw("You can only reject documents assigned to your reception office", frappe.PermissionError)
 
 	# Update document
 	doc.director_approved = 0
 	doc.director_rejected = 1
-	doc.director_user = user
+	# director_user is already set by reception_submit_to_director, don't override it
 	doc.director_decision_date = frappe.utils.now()
 	doc.director_comment = comment or ""
 	
@@ -624,12 +822,22 @@ def can_director_approve():
 		return False
 
 	user_roles = frappe.get_roles(user)
-	can_approve = "EDO Director" in user_roles or "EDO Admin" in user_roles
 	
-	# Debug logging
-	frappe.log_error(f"can_director_approve check: user={user}, roles={user_roles}, can_approve={can_approve}", "EDO Debug")
+	# Admin can always approve
+	if "EDO Admin" in user_roles:
+		return True
 	
-	return can_approve
+	# Director can approve only if they are assigned as director in at least one reception office
+	if "EDO Director" in user_roles:
+		# Check if user is director of any reception office
+		reception_offices = frappe.get_all(
+			"EDO Reception Office",
+			filters={"director": user},
+			limit=1
+		)
+		return len(reception_offices) > 0
+	
+	return False
 
 
 @frappe.whitelist()
@@ -669,6 +877,104 @@ def can_executor_sign(name):
 		return True
 	except:
 		return False
+
+
+# ==================== RECEPTION API ====================
+
+@frappe.whitelist()
+def can_reception_submit():
+	"""Check if current user can submit documents to director (Reception role)"""
+	user = frappe.session.user
+
+	if not user or user == "Guest":
+		return False
+
+	user_roles = frappe.get_roles(user)
+	return "EDO Reception" in user_roles or "EDO Admin" in user_roles
+
+
+@frappe.whitelist()
+def reception_submit_to_director(name, resolution=None, resolution_text=None, executor=None, co_executors=None):
+	"""
+	Reception submits document to director after assigning executors and resolution.
+
+	Args:
+		name: Document name
+		resolution: Resolution name (Link to EDO Resolution) - optional if resolution_text provided
+		resolution_text: Custom resolution text (written manually) - optional if resolution provided
+		executor: Main executor (User)
+		co_executors: List of co-executors
+	"""
+	user = frappe.session.user
+
+	if not user or user == "Guest":
+		frappe.throw("Not authorized", frappe.PermissionError)
+
+	# Check if user has Reception role
+	user_roles = frappe.get_roles(user)
+	if "EDO Reception" not in user_roles and "EDO Admin" not in user_roles:
+		frappe.throw("Only Reception can submit documents to director", frappe.PermissionError)
+
+	# Get document
+	doc = frappe.get_doc("EDO Document", name)
+
+	# Check if document is in "Новый" status
+	if doc.status != "Новый":
+		frappe.throw("Document must be in 'Новый' status to submit to director", frappe.ValidationError)
+
+	# Update document with resolution and executors
+	# Either resolution (Link) or resolution_text (manual text) should be provided
+	if resolution:
+		# Validate that resolution exists
+		if not frappe.db.exists("EDO Resolution", resolution):
+			frappe.throw(f"Resolution '{resolution}' not found", frappe.ValidationError)
+		doc.resolution = resolution
+		# Clear manual text if using predefined resolution
+		doc.resolution_text = None
+	elif resolution_text and resolution_text.strip():
+		# Use manual text resolution
+		doc.resolution = None
+		doc.resolution_text = resolution_text.strip()
+	else:
+		# Neither resolution nor resolution_text provided
+		frappe.throw("Either resolution or resolution_text must be provided", frappe.ValidationError)
+
+	if executor:
+		doc.executor = executor
+
+	# Handle co_executors
+	if co_executors:
+		import json
+		if isinstance(co_executors, str):
+			co_executors = json.loads(co_executors)
+		doc.set("co_executors", [])
+		for co_exec in co_executors:
+			if isinstance(co_exec, dict):
+				doc.append("co_executors", co_exec)
+			else:
+				doc.append("co_executors", {"user": co_exec})
+
+	# Set reception info
+	doc.reception_user = user
+	doc.reception_decision_date = frappe.utils.now()
+	
+	# Get director from reception office
+	if doc.reception_office:
+		reception_office_doc = frappe.get_doc("EDO Reception Office", doc.reception_office)
+		if reception_office_doc.director:
+			# Set director_user to the director of this reception office
+			doc.director_user = reception_office_doc.director
+		else:
+			frappe.throw(f"Reception office '{doc.reception_office}' does not have a director assigned", frappe.ValidationError)
+	else:
+		frappe.throw("Document must have a reception office assigned", frappe.ValidationError)
+
+	# Change status to "На рассмотрении" (for director review)
+	doc.status = "На рассмотрении"
+
+	doc.save(ignore_permissions=True)
+
+	return doc.as_dict()
 
 
 # ==================== STAMP API ====================
@@ -817,6 +1123,8 @@ def get_stamp_image(file_url: str):
 	frappe.local.response.headers["Content-Type"] = content_type
 	frappe.local.response.headers["Cache-Control"] = "public, max-age=3600"
 	frappe.local.response.headers["Content-Disposition"] = f'inline; filename="{file.file_name}"'
+
+
 
 
 @frappe.whitelist()
@@ -988,7 +1296,7 @@ def apply_stamps_to_pdf(document_name, stamps):
 			if page_idx in stamps_by_page:
 				# Apply stamps to this page
 				try:
-					stamped_page, page_stamps_applied = apply_stamps_to_page(page, stamps_by_page[page_idx])
+					stamped_page, page_stamps_applied = apply_stamps_to_page(page, stamps_by_page[page_idx], doc)
 					pdf_writer.add_page(stamped_page)
 					stamps_applied_count += page_stamps_applied
 					
@@ -1077,25 +1385,37 @@ def apply_stamps_to_pdf(document_name, stamps):
 			frappe.throw(f"Failed to create stamped PDF: {str(e)}", frappe.ValidationError)
 
 		# Generate unique filenames using content hash to avoid conflicts
+		import re
 		from frappe.core.doctype.file.utils import get_content_hash
-		
+
 		original_filename = os.path.basename(pdf_path)
 		name_without_ext = os.path.splitext(original_filename)[0]
-		
+
+		# Очищаем имя от старых суффиксов _stamped_XXXX и _original_XXXX
+		# чтобы избежать накопления суффиксов
+		clean_name = re.sub(r'(_stamped_[a-f0-9]+|_original_[a-f0-9]+)+$', '', name_without_ext)
+		if not clean_name:
+			clean_name = "document"
+
+		# Ограничиваем длину базового имени (оставляем место для суффикса _stamped_XXXXXXXX.pdf = 22 символа)
+		max_base_length = 140 - 22
+		if len(clean_name) > max_base_length:
+			clean_name = clean_name[:max_base_length]
+
 		# Читаем оригинальный контент для расчета хэша
 		with open(pdf_path, 'rb') as f:
 			original_content = f.read()
-		
+
 		# Используем хэш содержимого для уникальности имен файлов
 		# Для оригинального файла
 		original_content_hash = get_content_hash(original_content)
 		original_hash_suffix = original_content_hash[-8:]  # Последние 8 символов хэша
-		original_backup_filename = f"{name_without_ext}_original_{original_hash_suffix}.pdf"
-		
+		original_backup_filename = f"{clean_name}_original_{original_hash_suffix}.pdf"
+
 		# Для файла со штампом
 		stamped_content_hash = get_content_hash(output_bytes)
 		stamped_hash_suffix = stamped_content_hash[-8:]  # Последние 8 символов хэша
-		stamped_filename = f"{name_without_ext}_stamped_{stamped_hash_suffix}.pdf"
+		stamped_filename = f"{clean_name}_stamped_{stamped_hash_suffix}.pdf"
 		
 		# Удаляем старые файлы со штампами из attachments, чтобы избежать конфликтов
 		# Ищем файлы, которые заканчиваются на _stamped.pdf или _original.pdf
@@ -1149,7 +1469,7 @@ def apply_stamps_to_pdf(document_name, stamps):
 				"content": original_content,
 				"attached_to_doctype": "EDO Document",
 				"attached_to_name": document_name,
-				"is_private": 1
+				"is_private": 0
 			})
 			original_backup_file.save(ignore_permissions=True)
 
@@ -1177,7 +1497,7 @@ def apply_stamps_to_pdf(document_name, stamps):
 				"content": output_bytes,
 				"attached_to_doctype": "EDO Document",
 				"attached_to_name": document_name,
-				"is_private": 1
+				"is_private": 0
 			})
 			stamped_file.save(ignore_permissions=True)
 			
@@ -1252,8 +1572,14 @@ def apply_stamps_to_pdf(document_name, stamps):
 		frappe.throw(f"Failed to apply stamps: {str(e)}", frappe.ValidationError)
 
 
-def apply_stamps_to_page(page, stamps_info):
-	"""Apply multiple stamps to a single PDF page"""
+def apply_stamps_to_page(page, stamps_info, document=None):
+	"""Apply multiple stamps to a single PDF page
+
+	Args:
+		page: PDF page object
+		stamps_info: list of stamp info dicts
+		document: EDO Document object for filling stamp fields
+	"""
 	import io
 	import os
 	import traceback
@@ -1344,6 +1670,37 @@ def apply_stamps_to_page(page, stamps_info):
 			# Handle transparency - convert to RGBA if needed
 			if stamp_img.mode != 'RGBA':
 				stamp_img = stamp_img.convert('RGBA')
+			
+			# Fill stamp with document data if field_mappings exist
+			# Перезагружаем документ с child table для получения актуальных данных
+			stamp_doc.reload()
+			
+			# Получаем field_mappings из child table
+			field_mappings_list = []
+			if hasattr(stamp_doc, 'field_mappings') and stamp_doc.field_mappings:
+				# Конвертируем child table в список словарей
+				for mapping in stamp_doc.field_mappings:
+					if hasattr(mapping, 'as_dict'):
+						field_mappings_list.append(mapping.as_dict())
+					elif isinstance(mapping, dict):
+						field_mappings_list.append(mapping)
+					else:
+						# Пытаемся получить атрибуты напрямую
+						field_mappings_list.append({
+							"document_field": getattr(mapping, 'document_field', None),
+							"position_x": getattr(mapping, 'position_x', 0),
+							"position_y": getattr(mapping, 'position_y', 0),
+							"font_size": getattr(mapping, 'font_size', 12),
+							"color": getattr(mapping, 'color', '#000000'),
+							"max_width": getattr(mapping, 'max_width', 0),
+						})
+			
+			if field_mappings_list and len(field_mappings_list) > 0 and document:
+				try:
+					stamp_img = render_text_on_stamp_image(stamp_img, field_mappings_list, document)
+				except Exception as e:
+					# Continue with original image if text rendering fails
+					pass
 
 			stamp_w, stamp_h = stamp_img.size
 			scaled_w = stamp_w * scale
@@ -1469,6 +1826,288 @@ def calculate_stamp_position(page_width, page_height, stamp_width, stamp_height,
 	return positions.get(position, positions["bottom-right"])
 
 
+def wrap_text(text, font, max_width, draw):
+	"""
+	Разбивает текст на строки, чтобы каждая строка не превышала max_width пикселей.
+
+	Args:
+		text: Текст для разбиения
+		font: PIL ImageFont объект
+		max_width: Максимальная ширина строки в пикселях
+		draw: PIL ImageDraw объект для измерения текста
+
+	Returns:
+		Список строк
+	"""
+	def wrap_long_word(word, font, max_width, draw):
+		"""Разбивает длинное слово на части посимвольно"""
+		result = []
+		current = ""
+		for char in word:
+			test = current + char
+			bbox = draw.textbbox((0, 0), test, font=font)
+			if bbox[2] - bbox[0] <= max_width:
+				current = test
+			else:
+				if current:
+					result.append(current)
+				current = char
+		if current:
+			result.append(current)
+		return result if result else [word]
+
+	words = text.split()
+	lines = []
+	current_line = []
+
+	for word in words:
+		# Сначала проверяем, помещается ли слово целиком
+		bbox = draw.textbbox((0, 0), word, font=font)
+		word_width = bbox[2] - bbox[0]
+
+		if word_width > max_width:
+			# Слово слишком длинное - разбиваем посимвольно
+			if current_line:
+				lines.append(' '.join(current_line))
+				current_line = []
+			# Добавляем части длинного слова как отдельные строки
+			word_parts = wrap_long_word(word, font, max_width, draw)
+			lines.extend(word_parts[:-1])  # Все части кроме последней
+			if word_parts:
+				current_line = [word_parts[-1]]  # Последняя часть для продолжения
+		else:
+			# Проверяем ширину текущей строки + новое слово
+			test_line = ' '.join(current_line + [word])
+			bbox = draw.textbbox((0, 0), test_line, font=font)
+			line_width = bbox[2] - bbox[0]
+
+			if line_width <= max_width:
+				current_line.append(word)
+			else:
+				# Если текущая строка не пустая, сохраняем её
+				if current_line:
+					lines.append(' '.join(current_line))
+					current_line = [word]
+				else:
+					# Слово помещается, но строка не пустая - добавляем
+					current_line.append(word)
+
+	# Добавляем последнюю строку
+	if current_line:
+		lines.append(' '.join(current_line))
+
+	return lines if lines else [text]
+
+
+def render_text_on_stamp_image(stamp_img, field_mappings, document, show_text_area=False, use_placeholder=False):
+	"""
+	Рендерит текст на изображении штампа на основе настроек field_mappings и данных документа.
+
+	Args:
+		stamp_img: PIL Image объект штампа
+		field_mappings: список настроек полей из EDO Stamp (child table)
+		document: EDO Document объект с данными
+		show_text_area: показывать ли рамку области текста (для превью в админке)
+		use_placeholder: использовать плейсхолдер вместо реальных данных (для админки)
+
+	Returns:
+		PIL Image с нарисованным текстом
+	"""
+	from PIL import ImageDraw, ImageFont
+	import re
+	import os
+
+	# Создаем копию изображения для рисования
+	img_with_text = stamp_img.copy()
+	draw = ImageDraw.Draw(img_with_text)
+
+	# Пытаемся загрузить шрифт, если не получится - используем стандартный
+	try:
+		# Пробуем использовать системный шрифт
+		font_paths = [
+			"/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+			"/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+			"/System/Library/Fonts/Helvetica.ttc",
+		]
+		default_font = None
+		for font_path in font_paths:
+			try:
+				default_font = ImageFont.truetype(font_path, 12)
+				break
+			except:
+				continue
+		if not default_font:
+			default_font = ImageFont.load_default()
+	except:
+		default_font = ImageFont.load_default()
+
+	# Обрабатываем каждую настройку поля
+	# field_mappings уже должны быть списком словарей на этом этапе
+	for idx, field_mapping in enumerate(field_mappings):
+		# Убеждаемся, что это словарь
+		if not isinstance(field_mapping, dict):
+			continue
+
+		document_field = field_mapping.get("document_field")
+		# Пропускаем только если поле не указано вообще (для плейсхолдеров показываем даже пустые поля)
+		if not document_field:
+			# В режиме плейсхолдеров можно показать что-то общее, но обычно это означает ошибку конфигурации
+			if use_placeholder:
+				# Показываем общий плейсхолдер для не настроенных полей
+				field_value = "[Поле не настроено]"
+				position_x = int(field_mapping.get("position_x") or 0)
+				position_y = int(field_mapping.get("position_y") or 0)
+				font_size = int(field_mapping.get("font_size") or 12)
+				color = field_mapping.get("color") or "#000000"
+				try:
+					color_hex = color.lstrip('#')
+					rgb_color = tuple(int(color_hex[i:i+2], 16) for i in (0, 2, 4))
+				except:
+					rgb_color = (0, 0, 0)
+				try:
+					font = ImageFont.load_default()
+					draw.text((position_x, position_y), field_value, fill=rgb_color, font=font)
+				except:
+					pass
+			continue
+
+		# document_field может содержать формат "fieldname|Label [Type]" - берём только fieldname
+		# Сохраняем label для плейсхолдера
+		field_label = None
+		if "|" in document_field:
+			parts = document_field.split("|")
+			document_field = parts[0]
+			field_label = parts[1] if len(parts) > 1 else document_field
+
+		# Получаем параметры позиции и стиля (нужны для области и текста)
+		position_x = int(field_mapping.get("position_x") or 0)
+		position_y = int(field_mapping.get("position_y") or 0)
+		font_size = int(field_mapping.get("font_size") or 12)
+		max_width = int(field_mapping.get("max_width") or 0)
+		color = field_mapping.get("color") or "#000000"
+
+		# Рисуем область текста если show_text_area=True (независимо от document)
+		if show_text_area and max_width > 0:
+			# Примерная высота области (3 строки)
+			estimated_height = (font_size + 4) * 3
+			# Рисуем прямоугольник области красным цветом
+			draw.rectangle(
+				[position_x, position_y, position_x + max_width, position_y + estimated_height],
+				outline=(255, 0, 0),
+				width=2
+			)
+
+		# Если use_placeholder=True, показываем название поля вместо данных
+		if use_placeholder:
+			# Получаем читаемое название поля
+			if not field_label:
+				# Пытаемся получить label из метаданных
+				try:
+					doc_meta = frappe.get_meta("EDO Document")
+					field_meta = doc_meta.get_field(document_field)
+					field_label = field_meta.label if field_meta else document_field
+				except:
+					field_label = document_field
+			# Убираем [Type] из label если есть
+			if field_label and "[" in field_label:
+				field_label = field_label.split("[")[0].strip()
+			field_value = f"[{field_label}]"
+		elif document:
+			# Получаем значение поля из документа
+			field_value = getattr(document, document_field, None)
+		else:
+			continue
+
+		# field_value уже установлен выше (либо плейсхолдер, либо из документа)
+
+		# Для плейсхолдеров показываем даже если поле пустое
+		if use_placeholder:
+			text = str(field_value)
+		else:
+			# Если значение None или пустое, пропускаем (только для реальных данных, не для плейсхолдеров)
+			if field_value is None or field_value == "":
+				continue
+			
+			# Получаем метаданные поля для определения типа
+			doc_meta = frappe.get_meta("EDO Document")
+			field_meta = doc_meta.get_field(document_field)
+
+			# Форматируем значение в зависимости от типа
+			if field_meta and field_meta.fieldtype == "Link":
+				# Для Link полей получаем название связанного документа
+				try:
+					linked_doc = frappe.get_doc(field_meta.options, field_value)
+					# Для User используем full_name, для остальных - title_field или name
+					if field_meta.options == "User":
+						text = getattr(linked_doc, "full_name", None) or getattr(linked_doc, "name", field_value) or field_value
+					else:
+						# Пытаемся получить title_field или name
+						title_field = frappe.get_meta(field_meta.options).title_field or "name"
+						text = getattr(linked_doc, title_field, field_value) or field_value
+				except:
+					text = str(field_value)
+			elif isinstance(field_value, (frappe.utils.datetime.datetime, frappe.utils.datetime.date)):
+				# Для дат используем форматирование
+				if isinstance(field_value, frappe.utils.datetime.datetime):
+					text = frappe.utils.format_datetime(field_value, "dd.MM.yyyy HH:mm")
+				else:
+					text = frappe.utils.formatdate(field_value, "dd.MM.yyyy")
+			elif isinstance(field_value, (int, float)):
+				text = str(field_value)
+			else:
+				text = str(field_value)
+
+		# Парсим цвет из hex
+		try:
+			# Убираем # если есть
+			color_hex = color.lstrip('#')
+			# Конвертируем в RGB
+			rgb_color = tuple(int(color_hex[i:i+2], 16) for i in (0, 2, 4))
+		except:
+			rgb_color = (0, 0, 0)  # Черный по умолчанию
+		
+		# Загружаем шрифт нужного размера
+		font = None
+		font_paths = [
+			"/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+			"/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+			"/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+			"/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+			"/usr/share/fonts/TTF/DejaVuSans.ttf",  # Arch/Manjaro
+			"/usr/share/fonts/dejavu/DejaVuSans.ttf",  # Some distros
+		]
+		for font_path in font_paths:
+			try:
+				if os.path.exists(font_path):
+					font = ImageFont.truetype(font_path, font_size)
+					break
+			except Exception:
+				continue
+
+		if not font:
+			# Fallback to default font (small, but works)
+			font = ImageFont.load_default()
+
+		# Рисуем текст на изображении
+		try:
+			if max_width > 0:
+				# Перенос текста по ширине
+				lines = wrap_text(text, font, max_width, draw)
+				y_offset = position_y
+				line_height = font_size + 4  # Небольшой отступ между строками
+				for line in lines:
+					draw.text((position_x, y_offset), line, fill=rgb_color, font=font)
+					y_offset += line_height
+			else:
+				# Без переноса - одна строка
+				draw.text((position_x, position_y), text, fill=rgb_color, font=font)
+		except Exception as e:
+			# Продолжаем при ошибке рисования
+			continue
+
+	return img_with_text
+
+
 def get_file_path(file_url):
 	"""Get absolute file path from Frappe file URL"""
 	if not file_url:
@@ -1511,3 +2150,55 @@ def get_file_path(file_url):
 		return frappe.get_site_path('public', file_url)
 
 	return None
+
+
+@frappe.whitelist()
+def make_all_document_files_public():
+	"""Make all EDO document files public so they can be viewed in iframe"""
+	# Get all EDO documents
+	documents = frappe.get_all("EDO Document", fields=["name", "main_document"])
+	
+	updated_count = 0
+	for doc_data in documents:
+		if not doc_data.main_document:
+			continue
+		
+		try:
+			# Get document
+			doc = frappe.get_doc("EDO Document", doc_data.name)
+			
+			# Process main_document
+			main_doc_url = doc.main_document
+			if not main_doc_url.startswith("/"):
+				main_doc_url = "/" + main_doc_url
+			
+			# Find file and make it public
+			from frappe.core.doctype.file.utils import find_file_by_url
+			file = find_file_by_url(main_doc_url)
+			
+			if file and file.is_private:
+				file.is_private = 0
+				file.save(ignore_permissions=True)
+				updated_count += 1
+			
+			# Process attachments
+			if doc.attachments:
+				for att in doc.attachments:
+					if att.attachment:
+						att_url = att.attachment
+						if not att_url.startswith("/"):
+							att_url = "/" + att_url
+						
+						att_file = find_file_by_url(att_url)
+						if att_file and att_file.is_private:
+							att_file.is_private = 0
+							att_file.save(ignore_permissions=True)
+							updated_count += 1
+		except Exception as e:
+			frappe.log_error(f"Error processing document {doc_data.name}: {str(e)}", "make_all_document_files_public")
+			continue
+	
+	return {
+		"message": f"Updated {updated_count} files to public",
+		"updated_count": updated_count
+	}

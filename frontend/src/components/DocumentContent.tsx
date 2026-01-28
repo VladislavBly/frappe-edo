@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react'
-import { FileText, Users, History, CheckCircle2, Clock, Sparkles, Shield, XCircle } from 'lucide-react'
+import { FileText, Users, History, CheckCircle2, Clock, Sparkles, Shield, XCircle, Stamp } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Comments } from './Comments'
 import { Progress } from './ui/progress'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
+import { Button } from './ui/button'
 import type { EDODocument } from '../lib/api'
 import { api } from '../lib/api'
+import { PdfStampEditor } from './PdfStampEditor'
 
 interface DocumentContentProps {
   document: EDODocument | null
@@ -18,24 +21,38 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
   const { t } = useTranslation()
   const [activeTab, setActiveTab] = useState<TabType>('document')
   const [fullDocument, setFullDocument] = useState<EDODocument | null>(null)
+  const [stampEditorOpen, setStampEditorOpen] = useState(false)
+  const [pdfKey, setPdfKey] = useState(0) // Ключ для принудительного обновления PDF
+  const [pdfLoading, setPdfLoading] = useState(true) // Состояние загрузки PDF
   
   useEffect(() => {
     const loadFullDocument = async () => {
       if (!document) {
         setFullDocument(null)
+        setPdfLoading(false)
         return
       }
       try {
+        // Сбрасываем состояние загрузки при смене документа
+        setPdfLoading(true)
         const fullDoc = await api.getDocument(document.name)
         setFullDocument(fullDoc)
       } catch (err) {
         console.error('Failed to load full document:', err)
         setFullDocument(document)
+        setPdfLoading(false)
       }
     }
 
     loadFullDocument()
   }, [document?.name, document?.modified, document?.status, document?.director_approved, document?.director_rejected, document?.signatures?.length])
+
+  // Сбрасываем состояние загрузки при изменении main_document или pdfKey
+  useEffect(() => {
+    if (fullDocument?.main_document) {
+      setPdfLoading(true)
+    }
+  }, [fullDocument?.main_document, pdfKey])
 
   // Get all executors (main + co-executors)
   const getAllExecutors = () => {
@@ -71,62 +88,111 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
     return { signed, total, percentage }
   }
 
-  // Get approval progress steps
+  // Get approval progress steps - показываем все шаги сразу
   const getApprovalSteps = () => {
     if (!fullDocument) return []
-    const steps = [
-      {
-        label: 'Создан менеджером',
-        status: 'completed',
-        date: fullDocument.creation,
-        icon: FileText,
-      },
-    ]
-
-    if (fullDocument.status === 'Новый' || fullDocument.status_name === 'Новый') {
+    
+    const steps = []
+    
+    // 1. Создан менеджером - всегда completed
+    steps.push({
+      label: 'Создан менеджером',
+      status: 'completed',
+      date: fullDocument.creation,
+      icon: FileText,
+    })
+    
+    // 2. Обработан в приёмной
+    if (fullDocument.reception_user && fullDocument.reception_decision_date) {
       steps.push({
-        label: 'На согласовании у директора',
+        label: 'Обработан в приёмной',
+        status: 'completed',
+        date: fullDocument.reception_decision_date,
+        icon: Clock,
+      })
+    } else {
+      steps.push({
+        label: 'Обработка в приёмной',
         status: 'pending',
         date: undefined,
-        icon: Shield,
+        icon: Clock,
       })
-    } else if (fullDocument.director_approved) {
-      steps.push({
-        label: 'Согласован директором',
-        status: 'completed',
-        date: fullDocument.director_decision_date,
-        icon: CheckCircle2,
-      })
-    } else if (fullDocument.director_rejected) {
-      steps.push({
-        label: 'Отказан директором',
-        status: 'rejected',
-        date: fullDocument.director_decision_date,
-        icon: XCircle,
-      })
-      return steps
     }
-
-    if (fullDocument.status === 'На исполнении' || fullDocument.status_name === 'На исполнении' || 
-        fullDocument.status === 'Выполнено' || fullDocument.status_name === 'Выполнено') {
+    
+    // 3. Согласование директором (показываем только если документ уже обработан в приёмной)
+    // Если документ еще не обработан в приёмной, этот шаг не показываем
+    if (fullDocument.reception_user && fullDocument.reception_decision_date) {
+      if (fullDocument.director_approved) {
+        steps.push({
+          label: 'Согласован директором',
+          status: 'completed',
+          date: fullDocument.director_decision_date || undefined,
+          icon: CheckCircle2,
+        })
+      } else if (fullDocument.director_rejected) {
+        steps.push({
+          label: 'Отказан директором',
+          status: 'rejected',
+          date: fullDocument.director_decision_date || undefined,
+          icon: XCircle,
+        })
+        return steps // Если отказан, дальше шаги не показываем
+      } else {
+        steps.push({
+          label: 'На согласовании у директора',
+          status: 'pending',
+          date: undefined,
+          icon: Shield,
+        })
+      }
+    }
+    
+    // 4. Подписание исполнителями (только если есть исполнители И документ согласован директором)
+    // Показываем этот шаг только если директор уже согласовал (или отказал, но тогда мы уже вернулись)
+    const allExecutors = getAllExecutors()
+    if (allExecutors.length > 0 && (fullDocument.director_approved || fullDocument.reception_user)) {
       const progress = getSignatureProgress()
-      steps.push({
-        label: `Подписание исполнителями (${progress.signed}/${progress.total})`,
-        status: (fullDocument.status === 'Выполнено' || fullDocument.status_name === 'Выполнено') ? 'completed' : 'pending',
-        date: (fullDocument.status === 'Выполнено' || fullDocument.status_name === 'Выполнено') ? fullDocument.modified : undefined,
-        icon: Users,
-      })
+      if (fullDocument.status === 'Выполнено') {
+        steps.push({
+          label: `Подписание исполнителями (${progress.signed}/${progress.total})`,
+          status: 'completed',
+          date: fullDocument.modified,
+          icon: Users,
+        })
+      } else if (fullDocument.status === 'На исполнении') {
+        steps.push({
+          label: `Подписание исполнителями (${progress.signed}/${progress.total})`,
+          status: 'pending',
+          date: undefined,
+          icon: Users,
+        })
+      } else {
+        steps.push({
+          label: `Подписание исполнителями (0/${allExecutors.length})`,
+          status: 'pending',
+          date: undefined,
+          icon: Users,
+        })
+      }
     }
-
-    if (fullDocument.status === 'Выполнено' || fullDocument.status_name === 'Выполнено') {
+    
+    // 5. Выполнено
+    if (fullDocument.status === 'Выполнено') {
       steps.push({
         label: 'Выполнено',
         status: 'completed',
         date: fullDocument.modified,
         icon: Sparkles,
       })
+    } else {
+      steps.push({
+        label: 'Выполнено',
+        status: 'pending',
+        date: undefined,
+        icon: Sparkles,
+      })
     }
-
+    
     return steps
   }
   
@@ -199,14 +265,79 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
             {/* PDF Preview */}
             {currentDoc.main_document ? (
               <div className="bg-white border rounded-lg shadow-sm mb-6">
-                <div className="p-4 border-b">
+                <div className="p-4 border-b flex items-center justify-between">
                   <h3 className="text-sm font-medium">Превью документа</h3>
+                  {currentDoc.main_document.toLowerCase().endsWith('.pdf') && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setStampEditorOpen(true)}
+                    >
+                      <Stamp className="w-4 h-4 mr-2" />
+                      Добавить штамп
+                    </Button>
+                  )}
                 </div>
-                <div className="w-full" style={{ height: '800px' }}>
+                <div className="w-full relative bg-gray-50" style={{ height: '800px' }}>
+                  {/* Скелетон загрузки с Framer Motion анимацией */}
+                  <AnimatePresence>
+                    {pdfLoading && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.3, ease: 'easeInOut' }}
+                        className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 overflow-hidden"
+                      >
+                        {/* Имитация PDF документа - несколько страниц */}
+                        <div className="w-full h-full flex flex-col items-center justify-center gap-4 p-8">
+                          {/* Первая страница */}
+                          <div className="w-full max-w-2xl bg-white rounded shadow-lg animate-pulse" style={{ height: '280px' }}>
+                            <div className="h-full flex flex-col p-6 gap-4">
+                              <div className="h-6 bg-gray-200 rounded w-3/4"></div>
+                              <div className="h-4 bg-gray-200 rounded w-full"></div>
+                              <div className="h-4 bg-gray-200 rounded w-5/6"></div>
+                              <div className="flex-1 flex flex-col gap-3 mt-4">
+                                <div className="h-3 bg-gray-200 rounded w-full"></div>
+                                <div className="h-3 bg-gray-200 rounded w-full"></div>
+                                <div className="h-3 bg-gray-200 rounded w-4/5"></div>
+                                <div className="h-3 bg-gray-200 rounded w-full"></div>
+                                <div className="h-3 bg-gray-200 rounded w-3/4"></div>
+                              </div>
+                            </div>
+                          </div>
+                          {/* Вторая страница (частично видна) */}
+                          <div className="w-full max-w-2xl bg-white rounded shadow-lg animate-pulse opacity-60" style={{ height: '280px', marginTop: '-20px' }}>
+                            <div className="h-full flex flex-col p-6 gap-4">
+                              <div className="h-6 bg-gray-200 rounded w-2/3"></div>
+                              <div className="h-4 bg-gray-200 rounded w-4/5"></div>
+                              <div className="flex-1 flex flex-col gap-3 mt-4">
+                                <div className="h-3 bg-gray-200 rounded w-full"></div>
+                                <div className="h-3 bg-gray-200 rounded w-5/6"></div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                   <iframe
-                    src={`${currentDoc.main_document}#toolbar=0`}
-                    className="w-full h-full border-0"
+                    key={`pdf-${pdfKey}-${currentDoc.main_document}`}
+                    // Важно: не используем Date.now() в src, иначе iframe будет
+                    // перезагружаться при каждом рендере и "моргать"
+                    src={`${currentDoc.main_document}?v=${pdfKey}#toolbar=0`}
+                    className={`w-full h-full border-0 ${pdfLoading ? 'opacity-0' : 'opacity-100'} transition-opacity duration-300`}
                     title="Document Preview"
+                    onLoad={() => {
+                      // Задержка чтобы скелетон успел показаться, затем плавно скрываем
+                      setTimeout(() => {
+                        setPdfLoading(false)
+                      }, 300)
+                    }}
+                    onError={() => {
+                      // В случае ошибки тоже скрываем скелетон
+                      setPdfLoading(false)
+                    }}
                   />
                 </div>
               </div>
@@ -267,7 +398,11 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
 
             {/* Comments */}
             <div className="mt-8 border-t pt-6">
-              <Comments doctype="EDO Document" docname={currentDoc.name} />
+              <Comments 
+                doctype="EDO Document" 
+                docname={currentDoc.name}
+                refreshTrigger={currentDoc.modified ? new Date(currentDoc.modified).getTime() : undefined}
+              />
             </div>
           </>
         )}
@@ -447,15 +582,15 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
                   return (
                     <div key={index} className="flex items-start gap-3 pb-4 border-b last:border-0 last:pb-0">
                       <div className={`p-1.5 rounded-full ${
-                        step.status === 'completed' 
-                          ? 'bg-green-100 dark:bg-green-900/30' 
+                        step.status === 'completed'
+                          ? 'bg-green-100 dark:bg-green-900/30'
                           : step.status === 'rejected'
                           ? 'bg-red-100 dark:bg-red-900/30'
                           : 'bg-gray-100 dark:bg-gray-800'
                       }`}>
                         <Icon className={`w-4 h-4 ${
-                          step.status === 'completed' 
-                            ? 'text-green-600 dark:text-green-400' 
+                          step.status === 'completed'
+                            ? 'text-green-600 dark:text-green-400'
                             : step.status === 'rejected'
                             ? 'text-red-600 dark:text-red-400'
                             : 'text-gray-400'
@@ -463,8 +598,8 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
                       </div>
                       <div className="flex-1">
                         <p className={`font-medium text-sm ${
-                          step.status === 'completed' 
-                            ? 'text-green-700 dark:text-green-400' 
+                          step.status === 'completed'
+                            ? 'text-green-700 dark:text-green-400'
                             : step.status === 'rejected'
                             ? 'text-red-700 dark:text-red-400'
                             : 'text-gray-500 dark:text-gray-400'
@@ -486,6 +621,39 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
           </Card>
         )}
       </div>
+
+      {/* PDF Stamp Editor Modal */}
+      {stampEditorOpen && currentDoc.main_document && (
+        <PdfStampEditor
+          documentName={currentDoc.name}
+          pdfUrl={currentDoc.main_document}
+          onClose={() => setStampEditorOpen(false)}
+          onStampApplied={async () => {
+            setStampEditorOpen(false)
+            // Reload document to show stamped version (main_document is now stamped)
+            if (document) {
+              try {
+                // Небольшая задержка, чтобы дать серверу время сохранить файл
+                await new Promise(resolve => setTimeout(resolve, 500))
+                
+                const fullDoc = await api.getDocument(document.name)
+                setFullDocument(fullDoc)
+                
+                // Принудительно обновляем PDF, добавляя ключ к URL
+                setPdfKey(prev => prev + 1)
+                // Сбрасываем состояние загрузки для нового файла
+                setPdfLoading(true)
+                
+                console.log('Document reloaded after stamp application:', fullDoc)
+                console.log('New main_document:', fullDoc.main_document)
+              } catch (error) {
+                console.error('Failed to reload document after stamp application:', error)
+                alert('Штампы применены, но не удалось обновить документ. Обновите страницу.')
+              }
+            }
+          }}
+        />
+      )}
     </div>
   )
 }

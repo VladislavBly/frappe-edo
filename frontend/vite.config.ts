@@ -14,6 +14,7 @@ export default defineConfig({
     outDir: '../edo/public/dist',
     emptyOutDir: false,
     manifest: true,
+    copyPublicDir: true,
     rollupOptions: {
       input: {
         'edo-portal': './src/main.tsx',

@@ -1,11 +1,28 @@
 {
+  "src/assets/icons/dashboard.png": {
+    "file": "assets/dashboard.D5ndxOag.png",
+    "src": "src/assets/icons/dashboard.png"
+  },
+  "src/assets/icons/document.png": {
+    "file": "assets/document.CdEqbrON.png",
+    "src": "src/assets/icons/document.png"
+  },
+  "src/assets/icons/settings.png": {
+    "file": "assets/settings.CFN7stQz.png",
+    "src": "src/assets/icons/settings.png"
+  },
   "src/main.tsx": {
-    "file": "assets/edo-portal.D_zeYEtd.js",
+    "file": "assets/edo-portal.CBxujT9q.js",
     "name": "edo-portal",
     "src": "src/main.tsx",
     "isEntry": true,
     "css": [
-      "assets/edo-portal.Dl4ZNruc.css"
+      "assets/edo-portal.CzUExuzo.css"
+    ],
+    "assets": [
+      "assets/dashboard.D5ndxOag.png",
+      "assets/document.CdEqbrON.png",
+      "assets/settings.CFN7stQz.png"
     ]
   }
 }

@@ -1,14 +1,11 @@
 import { useEffect, useState, memo } from 'react'
 import { HeaderTitle } from './HeaderTitle'
 import { HeaderActions } from './HeaderActions'
+import { useHeader } from '../../contexts/HeaderContext'
 import { api, type User as UserType } from '../../lib/api'
 
-interface HeaderProps {
-  title: string
-  subtitle?: string
-}
-
-export const Header = memo(function Header({ title, subtitle }: HeaderProps) {
+export const Header = memo(function Header() {
+  const { title, subtitle } = useHeader()
   const [user, setUser] = useState<UserType | null>(null)
 
   useEffect(() => {

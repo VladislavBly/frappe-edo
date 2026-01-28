@@ -1,47 +1,92 @@
-import { useEffect } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
 import { DocumentSidebar } from '../components/DocumentSidebar'
 import { DocumentContent } from '../components/DocumentContent'
 import { DocumentMetadata } from '../components/DocumentMetadata'
-import type { EDODocument } from '../lib/api'
+import { AddDocumentDialog } from '../components/AddDocumentDialog'
+import { useHeader } from '../contexts/HeaderContext'
+import { api, type EDODocument } from '../lib/api'
 
 interface DocumentsPageProps {
-  documents: EDODocument[]
-  selectedDocument: EDODocument | null
-  onSelectDocument: (doc: EDODocument) => void
-  loadingList: boolean
-  loadingDocument: boolean
-  error: string | null
-  onDocumentsRefresh?: () => void
-  onFiltersChange?: (filters: {
+  canEdit?: boolean
+}
+
+export function DocumentsPage({
+  canEdit = false
+}: DocumentsPageProps) {
+  const { t } = useTranslation()
+  const { setHeader } = useHeader()
+  const [documents, setDocuments] = useState<EDODocument[]>([])
+  const [selectedDocument, setSelectedDocument] = useState<EDODocument | null>(null)
+  const [loadingList, setLoadingList] = useState(true)
+  const [loadingDocument, setLoadingDocument] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+
+  const loadDocuments = useCallback(async (filters?: {
     search?: string
     status?: string
     document_type?: string
     priority?: string
     correspondent?: string
-  }) => void
-  canEdit?: boolean
-  onEditDocument?: () => void
-}
+  }) => {
+    try {
+      setLoadingList(true)
+      setError(null)
+      const docs = await api.getDocuments(filters)
+      setDocuments(docs)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('documents.loadError'))
+    } finally {
+      setLoadingList(false)
+    }
+  }, [t])
 
-export function DocumentsPage({
-  documents,
-  selectedDocument,
-  onSelectDocument,
-  loadingList,
-  loadingDocument,
-  error,
-  onDocumentsRefresh,
-  onFiltersChange,
-  canEdit,
-  onEditDocument
-}: DocumentsPageProps) {
+  useEffect(() => {
+    setHeader(t('documents.title'), t('documents.subtitle'))
+  }, [setHeader, t])
+
+  useEffect(() => {
+    loadDocuments()
+  }, [loadDocuments])
+
+  const handleSelectDocument = useCallback(async (doc: EDODocument) => {
+    // Set document immediately for instant UI update
+    setSelectedDocument(doc)
+    setLoadingDocument(true)
+
+    try {
+      // Load full document details
+      const fullDoc = await api.getDocument(doc.name)
+      setSelectedDocument(fullDoc)
+    } catch (err) {
+      console.error('Failed to load document details:', err)
+    } finally {
+      setLoadingDocument(false)
+    }
+  }, [])
+
+  const handleEditDocument = useCallback(() => {
+    if (selectedDocument) {
+      setEditDialogOpen(true)
+    }
+  }, [selectedDocument])
+
+  const handleDocumentUpdated = useCallback(async (updatedDoc: EDODocument) => {
+    // Reload full document to get all expanded fields
+    const fullDoc = await api.getDocument(updatedDoc.name)
+    setSelectedDocument(fullDoc)
+    // Reload documents list to reflect changes
+    await loadDocuments()
+  }, [loadDocuments])
+
   // Auto-select first document when documents are loaded and none is selected
   useEffect(() => {
     if (documents.length > 0 && !selectedDocument && !loadingList) {
-      onSelectDocument(documents[0])
+      handleSelectDocument(documents[0])
     }
-  }, [documents, selectedDocument, loadingList, onSelectDocument])
+  }, [documents, selectedDocument, loadingList, handleSelectDocument])
 
   return (
     <motion.div
@@ -56,11 +101,11 @@ export function DocumentsPage({
           <DocumentSidebar
             documents={documents}
             selectedDocument={selectedDocument}
-            onSelectDocument={onSelectDocument}
+            onSelectDocument={handleSelectDocument}
             loading={loadingList}
             error={error}
-            onDocumentsRefresh={onDocumentsRefresh}
-            onFiltersChange={onFiltersChange}
+            onDocumentsRefresh={() => loadDocuments()}
+            onFiltersChange={loadDocuments}
           />
         </aside>
 
@@ -95,11 +140,19 @@ export function DocumentsPage({
               <DocumentMetadata
                 document={selectedDocument}
                 canEdit={canEdit}
-                onEdit={onEditDocument}
+                onEdit={handleEditDocument}
               />
             </motion.div>
           </AnimatePresence>
         </aside>
+
+        {/* Edit Document Dialog */}
+        <AddDocumentDialog
+          open={editDialogOpen}
+          onOpenChange={setEditDialogOpen}
+          editDocument={selectedDocument}
+          onDocumentUpdated={handleDocumentUpdated}
+        />
       </motion.div>
   )
 }

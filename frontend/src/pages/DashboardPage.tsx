@@ -1,16 +1,36 @@
+import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import { Dashboard } from '../components/Dashboard'
-import type { EDODocument } from '../lib/api'
+import { useHeader } from '../contexts/HeaderContext'
+import { api, type EDODocument } from '../lib/api'
 
 interface DashboardPageProps {
-  documents: EDODocument[]
   onNavigateToDocuments: () => void
 }
 
 export function DashboardPage({
-  documents,
   onNavigateToDocuments
 }: DashboardPageProps) {
+  const { t } = useTranslation()
+  const { setHeader } = useHeader()
+  const [documents, setDocuments] = useState<EDODocument[]>([])
+
+  useEffect(() => {
+    setHeader(t('dashboard.title'), t('dashboard.subtitle'))
+  }, [setHeader, t])
+
+  useEffect(() => {
+    const loadDocuments = async () => {
+      try {
+        const docs = await api.getDocuments()
+        setDocuments(docs)
+      } catch (err) {
+        console.error('Failed to load documents for dashboard:', err)
+      }
+    }
+    loadDocuments()
+  }, [])
   return (
     <motion.div
       key="dashboard"

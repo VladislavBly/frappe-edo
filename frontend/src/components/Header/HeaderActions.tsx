@@ -2,7 +2,7 @@ import { Search, Bell } from 'lucide-react'
 import { Button } from '../ui/button'
 import { LanguageSwitcher } from '../LanguageSwitcher'
 import { UserProfile } from './UserProfile'
-import { type User as UserType } from '../../lib/api'
+import type { User as UserType } from '../../api/users/types'
 
 interface HeaderActionsProps {
   user: UserType | null

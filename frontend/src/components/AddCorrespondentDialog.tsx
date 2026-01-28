@@ -3,20 +3,10 @@ import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
 import { Textarea } from './ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from './ui/select'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from './ui/dialog'
-import { api, type EDOCorrespondent } from '../lib/api'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog'
+import { api } from '../lib/api'
+import type { EDOCorrespondent } from '../api/references/types'
 
 interface AddCorrespondentDialogProps {
   open: boolean
@@ -114,7 +104,7 @@ export function AddCorrespondentDialog({
               id="correspondent_name"
               placeholder="Введите название корреспондента"
               value={correspondentName}
-              onChange={(e) => setCorrespondentName(e.target.value)}
+              onChange={e => setCorrespondentName(e.target.value)}
             />
           </div>
 
@@ -141,7 +131,7 @@ export function AddCorrespondentDialog({
                 id="organization"
                 placeholder="ООО «Компания»"
                 value={organization}
-                onChange={(e) => setOrganization(e.target.value)}
+                onChange={e => setOrganization(e.target.value)}
               />
             </div>
 
@@ -151,7 +141,7 @@ export function AddCorrespondentDialog({
                 id="inn"
                 placeholder="1234567890"
                 value={inn}
-                onChange={(e) => setInn(e.target.value)}
+                onChange={e => setInn(e.target.value)}
               />
             </div>
           </div>
@@ -163,7 +153,7 @@ export function AddCorrespondentDialog({
               placeholder="г. Ташкент, ул. Примерная, д. 1"
               rows={2}
               value={address}
-              onChange={(e) => setAddress(e.target.value)}
+              onChange={e => setAddress(e.target.value)}
             />
           </div>
 
@@ -174,7 +164,7 @@ export function AddCorrespondentDialog({
                 id="contact_person"
                 placeholder="Иванов И.И."
                 value={contactPerson}
-                onChange={(e) => setContactPerson(e.target.value)}
+                onChange={e => setContactPerson(e.target.value)}
               />
             </div>
 
@@ -184,7 +174,7 @@ export function AddCorrespondentDialog({
                 id="phone"
                 placeholder="+998 90 123 45 67"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={e => setPhone(e.target.value)}
               />
             </div>
 
@@ -195,7 +185,7 @@ export function AddCorrespondentDialog({
                 type="email"
                 placeholder="info@example.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={e => setEmail(e.target.value)}
               />
             </div>
           </div>

@@ -3,15 +3,10 @@ import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
 import { api } from '../lib/api'
-import type { EDOStamp, PdfInfo, StampPlacement } from '../lib/api'
+import { useStamps, usePdfInfo, useApplyStamps } from '../api/stamps/api'
+import type { StampPlacement } from '../api/stamps/types'
 import { Button } from './ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from './ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { X, Plus, Trash2, Move, ChevronLeft, ChevronRight } from 'lucide-react'
 
 // Set up PDF.js worker
@@ -41,22 +36,33 @@ const POSITIONS = [
   { value: 'custom', label: 'Произвольно' },
 ] as const
 
-export function PdfStampEditor({ documentName, pdfUrl, onClose, onStampApplied }: PdfStampEditorProps) {
-  const [stamps, setStamps] = useState<EDOStamp[]>([])
-  const [pdfInfo, setPdfInfo] = useState<PdfInfo | null>(null)
+export function PdfStampEditor({
+  documentName,
+  pdfUrl,
+  onClose,
+  onStampApplied,
+}: PdfStampEditorProps) {
+  const { data: stampsData = [], isLoading: stampsLoading } = useStamps()
+  const { data: pdfInfoData, isLoading: pdfInfoLoading } = usePdfInfo(documentName)
+  const applyStampsMutation = useApplyStamps()
+
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedStamp, setSelectedStamp] = useState<string>('')
   const [selectedPosition, setSelectedPosition] = useState<string>('bottom-right')
   const scale = 0.15 // Масштаб по умолчанию - 15% от оригинального размера
   const [placedStamps, setPlacedStamps] = useState<PlacedStamp[]>([])
-  const [loading, setLoading] = useState(true)
-  const [applying, setApplying] = useState(false)
   const [customPosition, setCustomPosition] = useState({ x: 50, y: 50 })
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const [previewPosition, setPreviewPosition] = useState<{ x: number; y: number } | null>(null)
-  const [stampImageSizes, setStampImageSizes] = useState<Record<string, { width: number; height: number }>>({})
+  const [stampImageSizes, setStampImageSizes] = useState<
+    Record<string, { width: number; height: number }>
+  >({})
   const [stampPreviews, setStampPreviews] = useState<Record<string, string>>({})
+
+  const loading = stampsLoading || pdfInfoLoading
+  const stamps = stampsData
+  const pdfInfo = pdfInfoData || null
 
   const pdfContainerRef = useRef<HTMLDivElement>(null)
   const stampPreviewRef = useRef<HTMLDivElement>(null)
@@ -68,113 +74,85 @@ export function PdfStampEditor({ documentName, pdfUrl, onClose, onStampApplied }
       console.warn('getFullImageUrl: empty imageUrl')
       return ''
     }
-    
+
     // Если уже полный URL, используем как есть
     if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
       console.log('getFullImageUrl: already full URL:', imageUrl)
       return imageUrl
     }
-    
+
     // Если URL уже содержит origin, используем как есть
     if (imageUrl.includes(window.location.origin)) {
       console.log('getFullImageUrl: URL contains origin:', imageUrl)
       return imageUrl
     }
-    
+
     // Для API endpoints (начинаются с /api/), используем как есть с origin
     if (imageUrl.startsWith('/api/')) {
       const fullUrl = `${window.location.origin}${imageUrl}`
       console.log('getFullImageUrl: API endpoint:', fullUrl)
       return fullUrl
     }
-    
+
     // Для обычных файлов, добавляем origin
     const fullUrl = `${window.location.origin}${imageUrl.startsWith('/') ? '' : '/'}${imageUrl}`
     console.log('getFullImageUrl: constructed URL:', fullUrl, 'from:', imageUrl)
     return fullUrl
   }
 
-  // Load stamps and PDF info
+  // Load stamp previews and image dimensions
   useEffect(() => {
-    async function loadData() {
-      try {
-        const [stampsData, pdfInfoData] = await Promise.all([
-          api.getStamps(),
-          api.getPdfInfo(documentName),
-        ])
-        console.log('Loaded stamps:', stampsData)
-        // Log each stamp's image URL
-        stampsData.forEach((stamp, index) => {
-          const fullUrl = stamp.stamp_image ? getFullImageUrl(stamp.stamp_image) : 'NO URL'
-          console.log(`Stamp ${index + 1} (${stamp.name}):`, {
-            title: stamp.title,
-            stamp_image: stamp.stamp_image,
-            fullUrl: fullUrl
-          })
-        })
-        setStamps(stampsData)
-        setPdfInfo(pdfInfoData)
-        
-        // Load actual image dimensions and previews for all stamps
-        const sizes: Record<string, { width: number; height: number }> = {}
-        const previews: Record<string, string> = {}
-        await Promise.all(
-          stampsData.map(async (stamp) => {
-            if (stamp.stamp_image) {
-              // Загружаем превью с заполненными полями
-              try {
-                const previewUrl = await api.getStampPreview(stamp.name, documentName)
-                previews[stamp.name] = previewUrl
-              } catch (error) {
-                console.warn(`Failed to load preview for stamp ${stamp.name}:`, error)
-                // Используем оригинальное изображение как fallback
-                previews[stamp.name] = getFullImageUrl(stamp.stamp_image)
-              }
-              
-              // Загружаем размеры изображения (используем превью если есть)
-              const imageUrl = previews[stamp.name] || getFullImageUrl(stamp.stamp_image)
-              try {
-                const img = new Image()
-                await new Promise((resolve, reject) => {
-                  img.onload = () => {
-                    sizes[stamp.stamp_image] = { width: img.width, height: img.height }
-                    resolve(null)
-                  }
-                  img.onerror = reject
-                  img.src = imageUrl
-                })
-              } catch (error) {
-                console.warn(`Failed to load image dimensions for stamp ${stamp.name}:`, error)
-                sizes[stamp.stamp_image] = { width: 150, height: 50 } // Default fallback
-              }
+    if (!stamps.length || !documentName) return
+
+    async function loadPreviews() {
+      const sizes: Record<string, { width: number; height: number }> = {}
+      const previews: Record<string, string> = {}
+
+      await Promise.all(
+        stamps.map(async stamp => {
+          if (stamp.stamp_image) {
+            // Загружаем превью с заполненными полями
+            try {
+              const previewUrl = await api.getStampPreview(stamp.name, documentName)
+              previews[stamp.name] = previewUrl
+            } catch (error) {
+              console.warn(`Failed to load preview for stamp ${stamp.name}:`, error)
+              // Используем оригинальное изображение как fallback
+              previews[stamp.name] = getFullImageUrl(stamp.stamp_image)
             }
-          })
-        )
-        setStampImageSizes(sizes)
-        setStampPreviews(previews)
-        
-        if (stampsData.length > 0) {
-          setSelectedStamp(stampsData[0].name)
-          const firstStamp = stampsData[0]
-          console.log('Selected first stamp:', firstStamp)
-          if (firstStamp.stamp_image) {
-            const fullUrl = getFullImageUrl(firstStamp.stamp_image)
-            console.log('First stamp image URL:', {
-              original: firstStamp.stamp_image,
-              full: fullUrl
-            })
-          } else {
-            console.warn('First stamp has no stamp_image!')
+
+            // Загружаем размеры изображения (используем превью если есть)
+            const imageUrl = previews[stamp.name] || getFullImageUrl(stamp.stamp_image)
+            try {
+              const img = new Image()
+              await new Promise((resolve, reject) => {
+                img.onload = () => {
+                  sizes[stamp.stamp_image] = { width: img.width, height: img.height }
+                  resolve(null)
+                }
+                img.onerror = reject
+                img.src = imageUrl
+              })
+            } catch (error) {
+              console.warn(`Failed to load image dimensions for stamp ${stamp.name}:`, error)
+              sizes[stamp.stamp_image] = { width: 150, height: 50 } // Default fallback
+            }
           }
-        }
-      } catch (error) {
-        console.error('Failed to load data:', error)
-      } finally {
-        setLoading(false)
-      }
+        })
+      )
+      setStampImageSizes(sizes)
+      setStampPreviews(previews)
     }
-    loadData()
-  }, [documentName])
+
+    loadPreviews()
+  }, [stamps, documentName])
+
+  // Set first stamp as selected when stamps are loaded
+  useEffect(() => {
+    if (stamps.length > 0 && !selectedStamp) {
+      setSelectedStamp(stamps[0].name)
+    }
+  }, [stamps, selectedStamp])
 
   // Handle PDF page load
   const onPageLoadSuccess = useCallback(({ width, height }: { width: number; height: number }) => {
@@ -191,18 +169,18 @@ export function PdfStampEditor({ documentName, pdfUrl, onClose, onStampApplied }
     // Для произвольной позиции убеждаемся, что координаты установлены
     let finalX = undefined
     let finalY = undefined
-    
+
     if (selectedPosition === 'custom') {
       if (previewPosition && pdfInfo?.pages[currentPage - 1]) {
         const pageInfo = pdfInfo.pages[currentPage - 1]
         const scaleX = pdfDimensions.width / pageInfo.width
         const scaleY = pdfDimensions.height / pageInfo.height
-        
+
         // Конвертируем экранные координаты в PDF координаты
         // previewPosition - это центр штампа на экране
-        finalX = (previewPosition.x / scaleX)
+        finalX = previewPosition.x / scaleX
         // PDF координаты идут снизу вверх, экранные сверху вниз
-        finalY = ((pdfDimensions.height - previewPosition.y) / scaleY)
+        finalY = (pdfDimensions.height - previewPosition.y) / scaleY
       } else if (customPosition.x && customPosition.y) {
         // Используем сохраненные координаты
         finalX = customPosition.x
@@ -223,7 +201,7 @@ export function PdfStampEditor({ documentName, pdfUrl, onClose, onStampApplied }
     }
 
     setPlacedStamps([...placedStamps, newStamp])
-    
+
     // Сбрасываем превью после добавления штампа
     // Если остаемся в произвольном режиме, обновляем позицию для следующего штампа
     if (selectedPosition === 'custom' && pdfDimensions.width && pdfDimensions.height) {
@@ -250,7 +228,6 @@ export function PdfStampEditor({ documentName, pdfUrl, onClose, onStampApplied }
   const applyStamps = async () => {
     if (placedStamps.length === 0) return
 
-    setApplying(true)
     try {
       const stampsData: StampPlacement[] = placedStamps.map(s => ({
         stamp_name: s.stamp_name,
@@ -262,9 +239,12 @@ export function PdfStampEditor({ documentName, pdfUrl, onClose, onStampApplied }
       }))
 
       console.log('Applying stamps:', stampsData)
-      const result = await api.applyStamps(documentName, stampsData)
+      const result = await applyStampsMutation.mutateAsync({
+        documentName,
+        stamps: stampsData,
+      })
       console.log('Apply stamps result:', result)
-      
+
       if (result && result.success) {
         // Успешно применено
         onStampApplied()
@@ -279,8 +259,6 @@ export function PdfStampEditor({ documentName, pdfUrl, onClose, onStampApplied }
       const errorMsg = error?.message || 'Произошла ошибка при применении штампов'
       alert(errorMsg)
       console.error('Failed to apply stamps:', error)
-    } finally {
-      setApplying(false)
     }
   }
 
@@ -318,10 +296,10 @@ export function PdfStampEditor({ documentName, pdfUrl, onClose, onStampApplied }
   // Handle drag start for stamp preview
   const handleDragStart = (e: React.MouseEvent) => {
     if (selectedPosition !== 'custom' || !selectedStamp || !stampPreviewRef.current) return
-    
+
     e.preventDefault()
     setIsDragging(true)
-    
+
     const rect = stampPreviewRef.current.getBoundingClientRect()
     setDragOffset({
       x: e.clientX - rect.left - rect.width / 2,
@@ -329,10 +307,15 @@ export function PdfStampEditor({ documentName, pdfUrl, onClose, onStampApplied }
     })
   }
 
-
   // Update preview position when custom position changes or position type changes
   useEffect(() => {
-    if (selectedPosition === 'custom' && selectedStamp && pdfContainerRef.current && pdfDimensions.width && pdfDimensions.height) {
+    if (
+      selectedPosition === 'custom' &&
+      selectedStamp &&
+      pdfContainerRef.current &&
+      pdfDimensions.width &&
+      pdfDimensions.height
+    ) {
       const pageInfo = pdfInfo?.pages[currentPage - 1]
       if (pageInfo && customPosition.x && customPosition.y) {
         const scaleX = pdfDimensions.width / pageInfo.width
@@ -340,7 +323,7 @@ export function PdfStampEditor({ documentName, pdfUrl, onClose, onStampApplied }
         // customPosition - это PDF координаты (центр штампа)
         // Конвертируем в экранные координаты (центр штампа)
         const x = customPosition.x * scaleX
-        const y = pdfDimensions.height - (customPosition.y * scaleY)
+        const y = pdfDimensions.height - customPosition.y * scaleY
         setPreviewPosition({ x, y })
       } else if (!previewPosition) {
         // Если страница еще не загружена, устанавливаем позицию по умолчанию
@@ -353,7 +336,12 @@ export function PdfStampEditor({ documentName, pdfUrl, onClose, onStampApplied }
 
   // Initialize preview position when switching to custom mode
   useEffect(() => {
-    if (selectedPosition === 'custom' && selectedStamp && pdfDimensions.width && pdfDimensions.height) {
+    if (
+      selectedPosition === 'custom' &&
+      selectedStamp &&
+      pdfDimensions.width &&
+      pdfDimensions.height
+    ) {
       // Устанавливаем начальную позицию в центре, если она еще не установлена
       if (!previewPosition) {
         setPreviewPosition({ x: pdfDimensions.width / 2, y: pdfDimensions.height / 2 })
@@ -427,7 +415,8 @@ export function PdfStampEditor({ documentName, pdfUrl, onClose, onStampApplied }
     const stampHeight = stampSize.height * stamp.scale * scaleY
     const margin = 20 * scaleX
 
-    let x = 0, y = 0
+    let x = 0,
+      y = 0
 
     switch (stamp.position) {
       case 'top-left':
@@ -464,7 +453,7 @@ export function PdfStampEditor({ documentName, pdfUrl, onClose, onStampApplied }
           // Экранные координаты: x слева направо, y сверху вниз
           // stamp.x и stamp.y - это PDF координаты (центр штампа)
           const centerX = stamp.x * scaleX
-          const centerY = pdfDimensions.height - (stamp.y * scaleY)
+          const centerY = pdfDimensions.height - stamp.y * scaleY
           // Вычисляем левый верхний угол для отображения
           x = centerX - stampWidth / 2
           y = centerY - stampHeight / 2
@@ -493,14 +482,15 @@ export function PdfStampEditor({ documentName, pdfUrl, onClose, onStampApplied }
 
     // Get actual stamp image size or use default
     const currentStamp = stamps.find(s => s.name === selectedStamp)
-    const stampSize = currentStamp?.stamp_image 
-      ? (stampImageSizes[currentStamp.stamp_image] || { width: 150, height: 50 })
+    const stampSize = currentStamp?.stamp_image
+      ? stampImageSizes[currentStamp.stamp_image] || { width: 150, height: 50 }
       : { width: 150, height: 50 }
     const stampWidth = stampSize.width * scale * scaleX
     const stampHeight = stampSize.height * scale * scaleY
     const margin = 20 * scaleX
 
-    let x = 0, y = 0
+    let x = 0,
+      y = 0
 
     switch (selectedPosition) {
       case 'top-left':
@@ -639,7 +629,9 @@ export function PdfStampEditor({ documentName, pdfUrl, onClose, onStampApplied }
               {selectedStamp && getSelectedStampPreviewPosition() && (
                 <div
                   className={`absolute pointer-events-none border-2 border-dashed border-green-500 bg-green-100/30 z-20 ${
-                    selectedPosition === 'custom' ? 'stamp-preview-draggable cursor-move bg-yellow-50/90 rounded shadow-lg pointer-events-auto' : ''
+                    selectedPosition === 'custom'
+                      ? 'stamp-preview-draggable cursor-move bg-yellow-50/90 rounded shadow-lg pointer-events-auto'
+                      : ''
                   }`}
                   style={getSelectedStampPreviewPosition()!}
                   ref={selectedPosition === 'custom' ? stampPreviewRef : undefined}
@@ -665,19 +657,20 @@ export function PdfStampEditor({ documentName, pdfUrl, onClose, onStampApplied }
                         src={imageUrl}
                         alt="Preview"
                         className={`w-full h-full object-contain ${selectedPosition === 'custom' ? '' : 'opacity-70'}`}
-                        onError={(e) => {
+                        onError={e => {
                           console.error('Failed to load preview stamp image:', imageUrl)
                           const target = e.target as HTMLImageElement
                           target.style.display = 'none'
                           const parent = target.parentElement
                           if (parent && !parent.querySelector('.error-placeholder')) {
                             const placeholder = document.createElement('div')
-                            placeholder.className = 'error-placeholder text-center text-gray-400 text-sm py-4'
+                            placeholder.className =
+                              'error-placeholder text-center text-gray-400 text-sm py-4'
                             placeholder.textContent = 'Изображение не загружено'
                             parent.appendChild(placeholder)
                           }
                         }}
-                        onLoad={(e) => {
+                        onLoad={e => {
                           const target = e.target as HTMLImageElement
                           target.style.display = 'block'
                           const parent = target.parentElement
@@ -726,7 +719,9 @@ export function PdfStampEditor({ documentName, pdfUrl, onClose, onStampApplied }
                         </div>
                       )
                     }
-                    const imageUrl = stamp.stamp_image ? (stampPreviews[stamp.name] || getFullImageUrl(stamp.stamp_image)) : ''
+                    const imageUrl = stamp.stamp_image
+                      ? stampPreviews[stamp.name] || getFullImageUrl(stamp.stamp_image)
+                      : ''
                     return imageUrl ? (
                       <>
                         <img
@@ -734,19 +729,20 @@ export function PdfStampEditor({ documentName, pdfUrl, onClose, onStampApplied }
                           src={imageUrl}
                           alt="Preview"
                           className="max-w-full max-h-20 mx-auto"
-                          onError={(e) => {
+                          onError={e => {
                             console.error('Failed to load stamp image:', imageUrl)
                             const target = e.target as HTMLImageElement
                             target.style.display = 'none'
                             const parent = target.parentElement
                             if (parent && !parent.querySelector('.preview-placeholder')) {
                               const placeholder = document.createElement('div')
-                              placeholder.className = 'preview-placeholder text-center text-gray-400 text-sm py-4'
+                              placeholder.className =
+                                'preview-placeholder text-center text-gray-400 text-sm py-4'
                               placeholder.textContent = 'Изображение не загружено'
                               parent.appendChild(placeholder)
                             }
                           }}
-                          onLoad={(e) => {
+                          onLoad={e => {
                             // Удаляем placeholder, если он есть
                             const target = e.target as HTMLImageElement
                             const parent = target.parentElement
@@ -806,12 +802,9 @@ export function PdfStampEditor({ documentName, pdfUrl, onClose, onStampApplied }
 
             {/* Add button - всегда видна */}
             <div className="mb-4">
-              <Button 
-                onClick={addStamp} 
-                disabled={
-                  !selectedStamp || 
-                  (selectedPosition === 'custom' && !previewPosition)
-                } 
+              <Button
+                onClick={addStamp}
+                disabled={!selectedStamp || (selectedPosition === 'custom' && !previewPosition)}
                 className="w-full"
               >
                 <Plus className="w-4 h-4 mr-2" />
@@ -841,7 +834,8 @@ export function PdfStampEditor({ documentName, pdfUrl, onClose, onStampApplied }
                       <div>
                         <div className="font-medium">{stamp.stamp_title}</div>
                         <div className="text-xs text-gray-500">
-                          Стр. {stamp.page_number + 1} | {POSITIONS.find(p => p.value === stamp.position)?.label}
+                          Стр. {stamp.page_number + 1} |{' '}
+                          {POSITIONS.find(p => p.value === stamp.position)?.label}
                         </div>
                       </div>
                       <button
@@ -865,9 +859,9 @@ export function PdfStampEditor({ documentName, pdfUrl, onClose, onStampApplied }
           </Button>
           <Button
             onClick={applyStamps}
-            disabled={placedStamps.length === 0 || applying}
+            disabled={placedStamps.length === 0 || applyStampsMutation.isPending}
           >
-            {applying ? 'Применение...' : 'Применить штампы'}
+            {applyStampsMutation.isPending ? 'Применение...' : 'Применить штампы'}
           </Button>
         </div>
       </div>

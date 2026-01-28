@@ -1,6 +1,7 @@
 import { LogOut, User, ChevronDown } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { api, type User as UserType } from '../../lib/api'
+import { useLogout } from '../../api/auth/api'
+import type { User as UserType } from '../../api/users/types'
 import { Button } from '../ui/button'
 import { Badge } from '../ui/badge'
 import {
@@ -18,10 +19,11 @@ interface UserProfileProps {
 
 export function UserProfile({ user }: UserProfileProps) {
   const { t } = useTranslation()
+  const logoutMutation = useLogout()
 
   const handleLogout = async () => {
     try {
-      await api.logout()
+      await logoutMutation.mutateAsync()
     } catch (err) {
       console.error('Failed to logout:', err)
       window.location.href = '/login'
@@ -30,12 +32,14 @@ export function UserProfile({ user }: UserProfileProps) {
 
   const getInitials = (name: string) => {
     if (!name) return 'U'
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2) || 'U'
+    return (
+      name
+        .split(' ')
+        .map(n => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2) || 'U'
+    )
   }
 
   const primaryRole = user?.roles?.find(role => role.startsWith('EDO')) || null
@@ -44,10 +48,7 @@ export function UserProfile({ user }: UserProfileProps) {
     <div className="flex items-center gap-2">
       {/* Role Badge */}
       {primaryRole && (
-        <Badge
-          variant={primaryRole === 'EDO Admin' ? 'default' : 'secondary'}
-          className="text-xs"
-        >
+        <Badge variant={primaryRole === 'EDO Admin' ? 'default' : 'secondary'} className="text-xs">
           {primaryRole.replace('EDO ', '')}
         </Badge>
       )}

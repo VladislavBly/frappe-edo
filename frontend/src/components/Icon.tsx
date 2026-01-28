@@ -6,12 +6,12 @@ import settingsIcon from '../assets/icons/settings.png'
 // Используем путь напрямую через Frappe assets
 function getIconSrc(iconPath: string, iconName: string): string {
   const imgSrc = iconPath as string
-  
+
   // В dev режиме Vite возвращает путь вида "/src/assets/icons/dashboard.png"
   if (imgSrc.startsWith('/src/')) {
     return imgSrc
   }
-  
+
   // В production используем прямой путь через Frappe assets
   return `/assets/edo/dist/assets/icons/${iconName}.png`
 }
@@ -28,11 +28,7 @@ const iconMap = {
   settings: settingsIcon,
 }
 
-export const Icon = memo(function Icon({ 
-  name, 
-  size = 20,
-  className = '' 
-}: IconProps) {
+export const Icon = memo(function Icon({ name, size = 20, className = '' }: IconProps) {
   const iconSrc = getIconSrc(iconMap[name], name)
 
   return (

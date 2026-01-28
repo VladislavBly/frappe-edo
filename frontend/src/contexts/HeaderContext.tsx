@@ -1,4 +1,4 @@
-import { createContext, useContext, useState } from 'react'
+import { createContext, useContext, useState, useCallback, useMemo } from 'react'
 import type { ReactNode } from 'react'
 
 interface HeaderContextType {
@@ -13,16 +13,14 @@ export function HeaderProvider({ children }: { children: ReactNode }) {
   const [title, setTitle] = useState('')
   const [subtitle, setSubtitle] = useState<string | undefined>(undefined)
 
-  const setHeader = (newTitle: string, newSubtitle?: string) => {
+  const setHeader = useCallback((newTitle: string, newSubtitle?: string) => {
     setTitle(newTitle)
     setSubtitle(newSubtitle)
-  }
+  }, [])
 
-  return (
-    <HeaderContext.Provider value={{ title, subtitle, setHeader }}>
-      {children}
-    </HeaderContext.Provider>
-  )
+  const value = useMemo(() => ({ title, subtitle, setHeader }), [title, subtitle, setHeader])
+
+  return <HeaderContext.Provider value={value}>{children}</HeaderContext.Provider>
 }
 
 export function useHeader() {

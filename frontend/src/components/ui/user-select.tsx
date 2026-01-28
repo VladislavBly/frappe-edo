@@ -3,7 +3,7 @@ import { Check, ChevronsUpDown, X, Search } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { Button } from './button'
 import { Input } from './input'
-import type { User } from '../../lib/api'
+import type { User } from '../../api/users/types'
 
 interface UserSelectProps {
   users: User[]
@@ -23,13 +23,13 @@ export function UserSelect({
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
 
-  const selectedUser = users.find((u) => u.name === value)
+  const selectedUser = users.find(u => u.name === value)
 
   const filteredUsers = useMemo(() => {
     if (!search.trim()) return users
     const searchLower = search.toLowerCase()
     return users.filter(
-      (u) =>
+      u =>
         (u.full_name || '').toLowerCase().includes(searchLower) ||
         u.name.toLowerCase().includes(searchLower) ||
         (u.email || '').toLowerCase().includes(searchLower)
@@ -72,7 +72,7 @@ export function UserSelect({
               <Input
                 placeholder="Поиск..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={e => setSearch(e.target.value)}
                 className="pl-8"
                 autoFocus
               />
@@ -84,7 +84,7 @@ export function UserSelect({
                 Пользователи не найдены
               </div>
             ) : (
-              filteredUsers.map((user) => (
+              filteredUsers.map(user => (
                 <div
                   key={user.name}
                   className={cn(
@@ -108,7 +108,9 @@ export function UserSelect({
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">{user.full_name || user.name}</div>
+                    <div className="text-sm font-medium truncate">
+                      {user.full_name || user.name}
+                    </div>
                     <div className="text-xs text-muted-foreground truncate">{user.email}</div>
                   </div>
                 </div>
@@ -144,32 +146,32 @@ export function UserMultiSelect({
   const [search, setSearch] = useState('')
 
   const availableUsers = useMemo(() => {
-    return users.filter((u) => !excludeUsers.includes(u.name))
+    return users.filter(u => !excludeUsers.includes(u.name))
   }, [users, excludeUsers])
 
   const filteredUsers = useMemo(() => {
     if (!search.trim()) return availableUsers
     const searchLower = search.toLowerCase()
     return availableUsers.filter(
-      (u) =>
+      u =>
         (u.full_name || '').toLowerCase().includes(searchLower) ||
         u.name.toLowerCase().includes(searchLower) ||
         (u.email || '').toLowerCase().includes(searchLower)
     )
   }, [availableUsers, search])
 
-  const selectedUsers = users.filter((u) => value.includes(u.name))
+  const selectedUsers = users.filter(u => value.includes(u.name))
 
   const toggleUser = (userName: string) => {
     if (value.includes(userName)) {
-      onChange(value.filter((v) => v !== userName))
+      onChange(value.filter(v => v !== userName))
     } else {
       onChange([...value, userName])
     }
   }
 
   const removeUser = (userName: string) => {
-    onChange(value.filter((v) => v !== userName))
+    onChange(value.filter(v => v !== userName))
   }
 
   return (
@@ -183,7 +185,7 @@ export function UserMultiSelect({
       >
         {selectedUsers.length > 0 ? (
           <div className="flex flex-wrap gap-1">
-            {selectedUsers.map((user) => (
+            {selectedUsers.map(user => (
               <span
                 key={user.name}
                 className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-xs"
@@ -191,7 +193,7 @@ export function UserMultiSelect({
                 {user.full_name || user.name}
                 <X
                   className="h-3 w-3 cursor-pointer hover:text-blue-600"
-                  onClick={(e) => {
+                  onClick={e => {
                     e.stopPropagation()
                     removeUser(user.name)
                   }}
@@ -212,7 +214,7 @@ export function UserMultiSelect({
               <Input
                 placeholder="Поиск..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                onChange={e => setSearch(e.target.value)}
                 className="pl-8"
                 autoFocus
               />
@@ -224,7 +226,7 @@ export function UserMultiSelect({
                 Пользователи не найдены
               </div>
             ) : (
-              filteredUsers.map((user) => (
+              filteredUsers.map(user => (
                 <div
                   key={user.name}
                   className={cn(
@@ -247,7 +249,9 @@ export function UserMultiSelect({
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">{user.full_name || user.name}</div>
+                    <div className="text-sm font-medium truncate">
+                      {user.full_name || user.name}
+                    </div>
                     <div className="text-xs text-muted-foreground truncate">{user.email}</div>
                   </div>
                 </div>

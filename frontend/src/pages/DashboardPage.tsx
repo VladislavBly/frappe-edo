@@ -1,24 +1,15 @@
 import { useEffect, useState } from 'react'
-import { useTranslation } from 'react-i18next'
 import { motion } from 'framer-motion'
 import { Dashboard } from '../components/Dashboard'
-import { useHeader } from '../contexts/HeaderContext'
-import { api, type EDODocument } from '../lib/api'
+import { api } from '../lib/api'
+import type { EDODocument } from '../api/documents/types'
 
 interface DashboardPageProps {
   onNavigateToDocuments: () => void
 }
 
-export function DashboardPage({
-  onNavigateToDocuments
-}: DashboardPageProps) {
-  const { t } = useTranslation()
-  const { setHeader } = useHeader()
+export function DashboardPage({ onNavigateToDocuments }: DashboardPageProps) {
   const [documents, setDocuments] = useState<EDODocument[]>([])
-
-  useEffect(() => {
-    setHeader(t('dashboard.title'), t('dashboard.subtitle'))
-  }, [setHeader, t])
 
   useEffect(() => {
     const loadDocuments = async () => {
@@ -40,10 +31,7 @@ export function DashboardPage({
       transition={{ duration: 0.2 }}
       className="flex-1"
     >
-      <Dashboard
-        documents={documents}
-        onNavigateToDocuments={onNavigateToDocuments}
-      />
+      <Dashboard documents={documents} onNavigateToDocuments={onNavigateToDocuments} />
     </motion.div>
   )
 }

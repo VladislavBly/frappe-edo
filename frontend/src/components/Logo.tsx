@@ -15,10 +15,7 @@ const sizeClasses = {
 // Файл находится в public/edo_logo.png, который копируется в dist
 const LOGO_PATH = '/assets/edo/dist/edo_logo.png'
 
-export const Logo = memo(function Logo({ 
-  size = 'md', 
-  className = '' 
-}: LogoProps) {
+export const Logo = memo(function Logo({ size = 'md', className = '' }: LogoProps) {
   return (
     <img
       src={LOGO_PATH}

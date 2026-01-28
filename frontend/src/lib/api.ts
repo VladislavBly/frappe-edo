@@ -155,7 +155,15 @@ export interface PdfInfo {
 export interface StampPlacement {
   stamp_name: string
   page_number: number // 0-indexed
-  position: 'top-left' | 'top-center' | 'top-right' | 'center' | 'bottom-left' | 'bottom-center' | 'bottom-right' | 'custom'
+  position:
+    | 'top-left'
+    | 'top-center'
+    | 'top-right'
+    | 'center'
+    | 'bottom-left'
+    | 'bottom-center'
+    | 'bottom-right'
+    | 'custom'
   x?: number
   y?: number
   scale: number
@@ -199,19 +207,25 @@ class FrappeAPI {
     priority?: string
     correspondent?: string
   }): Promise<EDODocument[]> {
-    return this.call('edo.edo.doctype.edo_document.edo_document.get_portal_documents', filters || {})
+    return this.call(
+      'edo.edo.doctype.edo_document.edo_document.get_portal_documents',
+      filters || {}
+    )
   }
 
   async getDocument(name: string): Promise<EDODocument> {
     // Use API method instead of direct resource access to bypass permission checks
-    const response = await fetch(`${this.baseURL}/api/method/edo.edo.doctype.edo_document.edo_document.get_document`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Frappe-CSRF-Token': this.getCSRFToken(),
-      },
-      body: JSON.stringify({ name }),
-    })
+    const response = await fetch(
+      `${this.baseURL}/api/method/edo.edo.doctype.edo_document.edo_document.get_document`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Frappe-CSRF-Token': this.getCSRFToken(),
+        },
+        body: JSON.stringify({ name }),
+      }
+    )
 
     if (!response.ok) {
       throw new Error(`Failed to fetch document: ${response.statusText}`)
@@ -247,7 +261,7 @@ class FrappeAPI {
     }
 
     const userData = await userResponse.json()
-    
+
     // Get user roles using our custom API method
     let roles: string[] = []
     try {
@@ -297,66 +311,84 @@ class FrappeAPI {
   }
 
   async getCorrespondents(): Promise<EDOCorrespondent[]> {
-    const response = await fetch(`${this.baseURL}/api/resource/EDO Correspondent?fields=["name","correspondent_name"]&limit_page_length=999`, {
-      headers: {
-        'X-Frappe-CSRF-Token': this.getCSRFToken(),
-      },
-    })
+    const response = await fetch(
+      `${this.baseURL}/api/resource/EDO Correspondent?fields=["name","correspondent_name"]&limit_page_length=999`,
+      {
+        headers: {
+          'X-Frappe-CSRF-Token': this.getCSRFToken(),
+        },
+      }
+    )
     if (!response.ok) throw new Error('Failed to fetch correspondents')
     const data = await response.json()
     return data.data
   }
 
   async getDocumentTypes(): Promise<EDODocumentType[]> {
-    const response = await fetch(`${this.baseURL}/api/resource/EDO Document Type?fields=["name","document_type_name"]&limit_page_length=999`, {
-      headers: {
-        'X-Frappe-CSRF-Token': this.getCSRFToken(),
-      },
-    })
+    const response = await fetch(
+      `${this.baseURL}/api/resource/EDO Document Type?fields=["name","document_type_name"]&limit_page_length=999`,
+      {
+        headers: {
+          'X-Frappe-CSRF-Token': this.getCSRFToken(),
+        },
+      }
+    )
     if (!response.ok) throw new Error('Failed to fetch document types')
     const data = await response.json()
     return data.data
   }
 
   async getPriorities(): Promise<EDOPriority[]> {
-    const response = await fetch(`${this.baseURL}/api/resource/EDO Priority?fields=["name","priority_name","weight"]&limit_page_length=999&order_by=weight desc`, {
-      headers: {
-        'X-Frappe-CSRF-Token': this.getCSRFToken(),
-      },
-    })
+    const response = await fetch(
+      `${this.baseURL}/api/resource/EDO Priority?fields=["name","priority_name","weight"]&limit_page_length=999&order_by=weight desc`,
+      {
+        headers: {
+          'X-Frappe-CSRF-Token': this.getCSRFToken(),
+        },
+      }
+    )
     if (!response.ok) throw new Error('Failed to fetch priorities')
     const data = await response.json()
     return data.data
   }
 
   async getStatuses(): Promise<EDOStatus[]> {
-    const response = await fetch(`${this.baseURL}/api/resource/EDO Status?fields=["name","status_name","color"]&limit_page_length=999`, {
-      headers: {
-        'X-Frappe-CSRF-Token': this.getCSRFToken(),
-      },
-    })
+    const response = await fetch(
+      `${this.baseURL}/api/resource/EDO Status?fields=["name","status_name","color"]&limit_page_length=999`,
+      {
+        headers: {
+          'X-Frappe-CSRF-Token': this.getCSRFToken(),
+        },
+      }
+    )
     if (!response.ok) throw new Error('Failed to fetch statuses')
     const data = await response.json()
     return data.data
   }
 
   async getClassifications(): Promise<EDOClassification[]> {
-    const response = await fetch(`${this.baseURL}/api/resource/EDO Classification?fields=["name","classification_name"]&limit_page_length=999`, {
-      headers: {
-        'X-Frappe-CSRF-Token': this.getCSRFToken(),
-      },
-    })
+    const response = await fetch(
+      `${this.baseURL}/api/resource/EDO Classification?fields=["name","classification_name"]&limit_page_length=999`,
+      {
+        headers: {
+          'X-Frappe-CSRF-Token': this.getCSRFToken(),
+        },
+      }
+    )
     if (!response.ok) throw new Error('Failed to fetch classifications')
     const data = await response.json()
     return data.data
   }
 
   async getDeliveryMethods(): Promise<EDODeliveryMethod[]> {
-    const response = await fetch(`${this.baseURL}/api/resource/EDO Delivery Method?fields=["name","delivery_method_name"]&limit_page_length=999`, {
-      headers: {
-        'X-Frappe-CSRF-Token': this.getCSRFToken(),
-      },
-    })
+    const response = await fetch(
+      `${this.baseURL}/api/resource/EDO Delivery Method?fields=["name","delivery_method_name"]&limit_page_length=999`,
+      {
+        headers: {
+          'X-Frappe-CSRF-Token': this.getCSRFToken(),
+        },
+      }
+    )
     if (!response.ok) throw new Error('Failed to fetch delivery methods')
     const data = await response.json()
     return data.data
@@ -367,11 +399,14 @@ class FrappeAPI {
   }
 
   async getReceptionOffices(): Promise<EDOReceptionOffice[]> {
-    const response = await fetch(`${this.baseURL}/api/resource/EDO Reception Office?fields=["name","reception_office_name"]&limit_page_length=999`, {
-      headers: {
-        'X-Frappe-CSRF-Token': this.getCSRFToken(),
-      },
-    })
+    const response = await fetch(
+      `${this.baseURL}/api/resource/EDO Reception Office?fields=["name","reception_office_name"]&limit_page_length=999`,
+      {
+        headers: {
+          'X-Frappe-CSRF-Token': this.getCSRFToken(),
+        },
+      }
+    )
     if (!response.ok) throw new Error('Failed to fetch reception offices')
     const data = await response.json()
     return data.data
@@ -484,11 +519,14 @@ class FrappeAPI {
   }
 
   async getResolutions(): Promise<EDOResolution[]> {
-    const response = await fetch(`${this.baseURL}/api/resource/EDO Resolution?fields=["name","resolution_name","resolution_text","is_active"]&filters=[["is_active","=",1]]&limit_page_length=999`, {
-      headers: {
-        'X-Frappe-CSRF-Token': this.getCSRFToken(),
-      },
-    })
+    const response = await fetch(
+      `${this.baseURL}/api/resource/EDO Resolution?fields=["name","resolution_name","resolution_text","is_active"]&filters=[["is_active","=",1]]&limit_page_length=999`,
+      {
+        headers: {
+          'X-Frappe-CSRF-Token': this.getCSRFToken(),
+        },
+      }
+    )
     if (!response.ok) throw new Error('Failed to fetch resolutions')
     const data = await response.json()
     return data.data

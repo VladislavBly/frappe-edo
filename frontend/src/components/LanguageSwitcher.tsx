@@ -45,12 +45,12 @@ export function LanguageSwitcher() {
       >
         <Globe className="w-4 h-4" />
         <span className="hidden md:inline">
-          {languages.find((l) => l.code === i18n.language)?.label || 'Русский'}
+          {languages.find(l => l.code === i18n.language)?.label || 'Русский'}
         </span>
       </button>
       {isOpen && (
         <div className="absolute right-0 top-full mt-1 w-40 bg-white border rounded-lg shadow-lg z-20 py-1">
-          {languages.map((lang) => (
+          {languages.map(lang => (
             <button
               key={lang.code}
               onClick={() => handleLanguageChange(lang.code)}

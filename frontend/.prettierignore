@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Build outputs
+dist/
+build/
+*.tsbuildinfo
+
+# Logs
+*.log
+
+# Environment
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+
+# Other
+public/
+*.min.js
+*.min.css

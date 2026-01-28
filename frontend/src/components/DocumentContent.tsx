@@ -1,13 +1,23 @@
 import { useState, useEffect } from 'react'
-import { FileText, Users, History, CheckCircle2, Clock, Sparkles, Shield, XCircle, Stamp } from 'lucide-react'
+import {
+  FileText,
+  Users,
+  History,
+  CheckCircle2,
+  Clock,
+  Sparkles,
+  Shield,
+  XCircle,
+  Stamp,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Comments } from './Comments'
 import { Progress } from './ui/progress'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { Button } from './ui/button'
-import type { EDODocument } from '../lib/api'
 import { api } from '../lib/api'
+import type { EDODocument } from '../api/documents/types'
 import { PdfStampEditor } from './PdfStampEditor'
 
 interface DocumentContentProps {
@@ -24,7 +34,7 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
   const [stampEditorOpen, setStampEditorOpen] = useState(false)
   const [pdfKey, setPdfKey] = useState(0) // Ключ для принудительного обновления PDF
   const [pdfLoading, setPdfLoading] = useState(true) // Состояние загрузки PDF
-  
+
   useEffect(() => {
     const loadFullDocument = async () => {
       if (!document) {
@@ -45,7 +55,14 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
     }
 
     loadFullDocument()
-  }, [document?.name, document?.modified, document?.status, document?.director_approved, document?.director_rejected, document?.signatures?.length])
+  }, [
+    document?.name,
+    document?.modified,
+    document?.status,
+    document?.director_approved,
+    document?.director_rejected,
+    document?.signatures?.length,
+  ])
 
   // Сбрасываем состояние загрузки при изменении main_document или pdfKey
   useEffect(() => {
@@ -91,9 +108,9 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
   // Get approval progress steps - показываем все шаги сразу
   const getApprovalSteps = () => {
     if (!fullDocument) return []
-    
+
     const steps = []
-    
+
     // 1. Создан менеджером - всегда completed
     steps.push({
       label: 'Создан менеджером',
@@ -101,7 +118,7 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
       date: fullDocument.creation,
       icon: FileText,
     })
-    
+
     // 2. Обработан в приёмной
     if (fullDocument.reception_user && fullDocument.reception_decision_date) {
       steps.push({
@@ -118,7 +135,7 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
         icon: Clock,
       })
     }
-    
+
     // 3. Согласование директором (показываем только если документ уже обработан в приёмной)
     // Если документ еще не обработан в приёмной, этот шаг не показываем
     if (fullDocument.reception_user && fullDocument.reception_decision_date) {
@@ -146,11 +163,14 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
         })
       }
     }
-    
+
     // 4. Подписание исполнителями (только если есть исполнители И документ согласован директором)
     // Показываем этот шаг только если директор уже согласовал (или отказал, но тогда мы уже вернулись)
     const allExecutors = getAllExecutors()
-    if (allExecutors.length > 0 && (fullDocument.director_approved || fullDocument.reception_user)) {
+    if (
+      allExecutors.length > 0 &&
+      (fullDocument.director_approved || fullDocument.reception_user)
+    ) {
       const progress = getSignatureProgress()
       if (fullDocument.status === 'Выполнено') {
         steps.push({
@@ -175,7 +195,7 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
         })
       }
     }
-    
+
     // 5. Выполнено
     if (fullDocument.status === 'Выполнено') {
       steps.push({
@@ -192,10 +212,10 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
         icon: Sparkles,
       })
     }
-    
+
     return steps
   }
-  
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -209,9 +229,7 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
       <div className="flex flex-col items-center justify-center h-full text-center p-8">
         <FileText className="w-16 h-16 text-muted-foreground mb-4" />
         <h2 className="text-xl font-semibold mb-2">{t('documentContent.noDocumentSelected')}</h2>
-        <p className="text-muted-foreground">
-          {t('documentContent.selectDocumentMessage')}
-        </p>
+        <p className="text-muted-foreground">{t('documentContent.selectDocumentMessage')}</p>
       </div>
     )
   }
@@ -243,7 +261,8 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            {t('documentContent.tabs.signatures')} ({signatureProgress.signed}/{signatureProgress.total})
+            {t('documentContent.tabs.signatures')} ({signatureProgress.signed}/
+            {signatureProgress.total})
           </button>
           <button
             onClick={() => setActiveTab('history')}
@@ -268,11 +287,7 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
                 <div className="p-4 border-b flex items-center justify-between">
                   <h3 className="text-sm font-medium">Превью документа</h3>
                   {currentDoc.main_document.toLowerCase().endsWith('.pdf') && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setStampEditorOpen(true)}
-                    >
+                    <Button variant="outline" size="sm" onClick={() => setStampEditorOpen(true)}>
                       <Stamp className="w-4 h-4 mr-2" />
                       Добавить штамп
                     </Button>
@@ -292,7 +307,10 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
                         {/* Имитация PDF документа - несколько страниц */}
                         <div className="w-full h-full flex flex-col items-center justify-center gap-4 p-8">
                           {/* Первая страница */}
-                          <div className="w-full max-w-2xl bg-white rounded shadow-lg animate-pulse" style={{ height: '280px' }}>
+                          <div
+                            className="w-full max-w-2xl bg-white rounded shadow-lg animate-pulse"
+                            style={{ height: '280px' }}
+                          >
                             <div className="h-full flex flex-col p-6 gap-4">
                               <div className="h-6 bg-gray-200 rounded w-3/4"></div>
                               <div className="h-4 bg-gray-200 rounded w-full"></div>
@@ -307,7 +325,10 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
                             </div>
                           </div>
                           {/* Вторая страница (частично видна) */}
-                          <div className="w-full max-w-2xl bg-white rounded shadow-lg animate-pulse opacity-60" style={{ height: '280px', marginTop: '-20px' }}>
+                          <div
+                            className="w-full max-w-2xl bg-white rounded shadow-lg animate-pulse opacity-60"
+                            style={{ height: '280px', marginTop: '-20px' }}
+                          >
                             <div className="h-full flex flex-col p-6 gap-4">
                               <div className="h-6 bg-gray-200 rounded w-2/3"></div>
                               <div className="h-4 bg-gray-200 rounded w-4/5"></div>
@@ -358,14 +379,20 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
                   <table className="w-full">
                     <thead className="bg-muted/50">
                       <tr>
-                        <th className="text-left p-3 text-xs font-medium text-muted-foreground">Название</th>
-                        <th className="text-left p-3 text-xs font-medium text-muted-foreground">Размер</th>
-                        <th className="text-right p-3 text-xs font-medium text-muted-foreground">Действия</th>
+                        <th className="text-left p-3 text-xs font-medium text-muted-foreground">
+                          Название
+                        </th>
+                        <th className="text-left p-3 text-xs font-medium text-muted-foreground">
+                          Размер
+                        </th>
+                        <th className="text-right p-3 text-xs font-medium text-muted-foreground">
+                          Действия
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {currentDoc.attachments.map((attachment: any, index: number) => {
-                        const fileSize = attachment.file_size 
+                        const fileSize = attachment.file_size
                           ? `${(attachment.file_size / 1024).toFixed(2)} KB`
                           : '-'
                         return (
@@ -373,7 +400,9 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
                             <td className="p-3">
                               <div className="flex items-center gap-2">
                                 <FileText className="w-4 h-4 text-muted-foreground" />
-                                <span className="text-sm">{attachment.file_name || `Вложение ${index + 1}`}</span>
+                                <span className="text-sm">
+                                  {attachment.file_name || `Вложение ${index + 1}`}
+                                </span>
                               </div>
                             </td>
                             <td className="p-3 text-sm text-muted-foreground">{fileSize}</td>
@@ -398,10 +427,12 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
 
             {/* Comments */}
             <div className="mt-8 border-t pt-6">
-              <Comments 
-                doctype="EDO Document" 
+              <Comments
+                doctype="EDO Document"
                 docname={currentDoc.name}
-                refreshTrigger={currentDoc.modified ? new Date(currentDoc.modified).getTime() : undefined}
+                refreshTrigger={
+                  currentDoc.modified ? new Date(currentDoc.modified).getTime() : undefined
+                }
               />
             </div>
           </>
@@ -425,39 +456,47 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
                       return (
                         <div key={index} className="flex items-start gap-3">
                           <div className="flex flex-col items-center">
-                            <div className={`relative p-1.5 rounded-full transition-all ${
-                              step.status === 'completed' 
-                                ? 'bg-green-100 dark:bg-green-900/30 ring-2 ring-green-500' 
-                                : step.status === 'rejected'
-                                ? 'bg-red-100 dark:bg-red-900/30 ring-2 ring-red-500'
-                                : 'bg-gray-100 dark:bg-gray-800 ring-2 ring-gray-300 dark:ring-gray-700'
-                            }`}>
-                              <Icon className={`w-4 h-4 ${
-                                step.status === 'completed' 
-                                  ? 'text-green-600 dark:text-green-400' 
+                            <div
+                              className={`relative p-1.5 rounded-full transition-all ${
+                                step.status === 'completed'
+                                  ? 'bg-green-100 dark:bg-green-900/30 ring-2 ring-green-500'
                                   : step.status === 'rejected'
-                                  ? 'text-red-600 dark:text-red-400'
-                                  : 'text-gray-400'
-                              }`} />
+                                    ? 'bg-red-100 dark:bg-red-900/30 ring-2 ring-red-500'
+                                    : 'bg-gray-100 dark:bg-gray-800 ring-2 ring-gray-300 dark:ring-gray-700'
+                              }`}
+                            >
+                              <Icon
+                                className={`w-4 h-4 ${
+                                  step.status === 'completed'
+                                    ? 'text-green-600 dark:text-green-400'
+                                    : step.status === 'rejected'
+                                      ? 'text-red-600 dark:text-red-400'
+                                      : 'text-gray-400'
+                                }`}
+                              />
                             </div>
                             {index < approvalSteps.length - 1 && (
-                              <div className={`w-0.5 h-8 mt-1 transition-all ${
-                                step.status === 'completed' 
-                                  ? 'bg-gradient-to-b from-green-500 to-green-300' 
-                                  : step.status === 'rejected'
-                                  ? 'bg-gradient-to-b from-red-500 to-red-300'
-                                  : 'bg-gray-300 dark:bg-gray-700'
-                              }`} />
+                              <div
+                                className={`w-0.5 h-8 mt-1 transition-all ${
+                                  step.status === 'completed'
+                                    ? 'bg-gradient-to-b from-green-500 to-green-300'
+                                    : step.status === 'rejected'
+                                      ? 'bg-gradient-to-b from-red-500 to-red-300'
+                                      : 'bg-gray-300 dark:bg-gray-700'
+                                }`}
+                              />
                             )}
                           </div>
                           <div className="flex-1 pt-0.5">
-                            <p className={`font-medium text-sm transition-colors ${
-                              step.status === 'completed' 
-                                ? 'text-green-700 dark:text-green-400' 
-                                : step.status === 'rejected'
-                                ? 'text-red-700 dark:text-red-400'
-                                : 'text-gray-500 dark:text-gray-400'
-                            }`}>
+                            <p
+                              className={`font-medium text-sm transition-colors ${
+                                step.status === 'completed'
+                                  ? 'text-green-700 dark:text-green-400'
+                                  : step.status === 'rejected'
+                                    ? 'text-red-700 dark:text-red-400'
+                                    : 'text-gray-500 dark:text-gray-400'
+                              }`}
+                            >
                               {step.label}
                             </p>
                             {step.date && (
@@ -485,85 +524,110 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
               </CardHeader>
               <CardContent className="pt-6">
                 {signatureProgress.total > 0 ? (
-                <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 rounded-lg border-2 border-blue-200 dark:border-blue-800">
-                  <div className="flex justify-between text-sm mb-2">
-                    <span className="font-semibold text-gray-700 dark:text-gray-300">Прогресс подписания</span>
-                    <span className="font-bold text-blue-600 dark:text-blue-400">
-                      {signatureProgress.signed} из {signatureProgress.total}
-                    </span>
+                  <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 rounded-lg border-2 border-blue-200 dark:border-blue-800">
+                    <div className="flex justify-between text-sm mb-2">
+                      <span className="font-semibold text-gray-700 dark:text-gray-300">
+                        Прогресс подписания
+                      </span>
+                      <span className="font-bold text-blue-600 dark:text-blue-400">
+                        {signatureProgress.signed} из {signatureProgress.total}
+                      </span>
+                    </div>
+                    <Progress value={signatureProgress.percentage} className="h-2" />
                   </div>
-                  <Progress value={signatureProgress.percentage} className="h-2" />
-                </div>
-              ) : (
-                <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
-                  <p className="text-sm text-muted-foreground text-center">
-                    Исполнители не назначены для этого документа
-                  </p>
-                </div>
-              )}
-              <div className="space-y-3">
-                {getAllExecutors().length > 0 ? getAllExecutors().map((executorId) => {
-                  const signature = currentDoc.signatures?.find(sig => sig.user === executorId)
-                  const executorInfo = currentDoc.executor === executorId
-                    ? { name: currentDoc.executor_full_name || executorId, image: currentDoc.executor_image }
-                    : currentDoc.co_executors?.find(co => co.user === executorId)
-                      ? { name: currentDoc.co_executors.find(co => co.user === executorId)?.user_full_name || executorId, image: currentDoc.co_executors.find(co => co.user === executorId)?.user_image }
-                      : { name: executorId, image: undefined }
+                ) : (
+                  <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-800">
+                    <p className="text-sm text-muted-foreground text-center">
+                      Исполнители не назначены для этого документа
+                    </p>
+                  </div>
+                )}
+                <div className="space-y-3">
+                  {getAllExecutors().length > 0 ? (
+                    getAllExecutors().map(executorId => {
+                      const signature = currentDoc.signatures?.find(sig => sig.user === executorId)
+                      const executorInfo =
+                        currentDoc.executor === executorId
+                          ? {
+                              name: currentDoc.executor_full_name || executorId,
+                              image: currentDoc.executor_image,
+                            }
+                          : currentDoc.co_executors?.find(co => co.user === executorId)
+                            ? {
+                                name:
+                                  currentDoc.co_executors.find(co => co.user === executorId)
+                                    ?.user_full_name || executorId,
+                                image: currentDoc.co_executors.find(co => co.user === executorId)
+                                  ?.user_image,
+                              }
+                            : { name: executorId, image: undefined }
 
-                  return (
-                    <div 
-                      key={executorId} 
-                      className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-all ${
-                        signature 
-                          ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 shadow-sm' 
-                          : 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800'
-                      }`}
-                    >
-                      {executorInfo.image ? (
-                        <img src={executorInfo.image} alt={executorInfo.name} className="w-12 h-12 rounded-full ring-2 ring-offset-2 ring-blue-500" />
-                      ) : (
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold text-base ring-2 ring-offset-2 ring-blue-500">
-                          {executorInfo.name.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <div className="flex-1">
-                        <p className="font-semibold text-sm text-gray-800 dark:text-gray-200">{executorInfo.name}</p>
-                        {signature ? (
-                          <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                            <p className="flex items-center gap-1">
-                              <CheckCircle2 className="w-3 h-3 text-green-600" />
-                              Подписан: {signature.signed_at ? new Date(signature.signed_at).toLocaleString('ru-RU') : ''}
+                      return (
+                        <div
+                          key={executorId}
+                          className={`flex items-center gap-3 p-4 rounded-lg border-2 transition-all ${
+                            signature
+                              ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 shadow-sm'
+                              : 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800'
+                          }`}
+                        >
+                          {executorInfo.image ? (
+                            <img
+                              src={executorInfo.image}
+                              alt={executorInfo.name}
+                              className="w-12 h-12 rounded-full ring-2 ring-offset-2 ring-blue-500"
+                            />
+                          ) : (
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold text-base ring-2 ring-offset-2 ring-blue-500">
+                              {executorInfo.name.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <div className="flex-1">
+                            <p className="font-semibold text-sm text-gray-800 dark:text-gray-200">
+                              {executorInfo.name}
                             </p>
-                            {signature.comment && (
-                              <p className="mt-1 p-2 bg-white dark:bg-gray-800 rounded text-gray-700 dark:text-gray-300 text-xs">
-                                {signature.comment}
+                            {signature ? (
+                              <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                                <p className="flex items-center gap-1">
+                                  <CheckCircle2 className="w-3 h-3 text-green-600" />
+                                  Подписан:{' '}
+                                  {signature.signed_at
+                                    ? new Date(signature.signed_at).toLocaleString('ru-RU')
+                                    : ''}
+                                </p>
+                                {signature.comment && (
+                                  <p className="mt-1 p-2 bg-white dark:bg-gray-800 rounded text-gray-700 dark:text-gray-300 text-xs">
+                                    {signature.comment}
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Ожидает подписания
                               </p>
                             )}
                           </div>
-                        ) : (
-                          <p className="text-xs text-muted-foreground mt-1">Ожидает подписания</p>
-                        )}
-                      </div>
-                      {signature ? (
-                        <div className="p-1.5 bg-green-100 dark:bg-green-900/50 rounded-full">
-                          <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+                          {signature ? (
+                            <div className="p-1.5 bg-green-100 dark:bg-green-900/50 rounded-full">
+                              <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400" />
+                            </div>
+                          ) : (
+                            <div className="w-6 h-6 rounded-full border-2 border-gray-300 dark:border-gray-600 flex items-center justify-center">
+                              <div className="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600" />
+                            </div>
+                          )}
                         </div>
-                      ) : (
-                        <div className="w-6 h-6 rounded-full border-2 border-gray-300 dark:border-gray-600 flex items-center justify-center">
-                          <div className="w-2 h-2 rounded-full bg-gray-300 dark:bg-gray-600" />
-                        </div>
-                      )}
+                      )
+                    })
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p className="text-sm">Нет назначенных исполнителей</p>
                     </div>
-                  )
-                }) : (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                    <p className="text-sm">Нет назначенных исполнителей</p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
 
@@ -580,30 +644,39 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
                 {approvalSteps.map((step, index) => {
                   const Icon = step.icon
                   return (
-                    <div key={index} className="flex items-start gap-3 pb-4 border-b last:border-0 last:pb-0">
-                      <div className={`p-1.5 rounded-full ${
-                        step.status === 'completed'
-                          ? 'bg-green-100 dark:bg-green-900/30'
-                          : step.status === 'rejected'
-                          ? 'bg-red-100 dark:bg-red-900/30'
-                          : 'bg-gray-100 dark:bg-gray-800'
-                      }`}>
-                        <Icon className={`w-4 h-4 ${
+                    <div
+                      key={index}
+                      className="flex items-start gap-3 pb-4 border-b last:border-0 last:pb-0"
+                    >
+                      <div
+                        className={`p-1.5 rounded-full ${
                           step.status === 'completed'
-                            ? 'text-green-600 dark:text-green-400'
+                            ? 'bg-green-100 dark:bg-green-900/30'
                             : step.status === 'rejected'
-                            ? 'text-red-600 dark:text-red-400'
-                            : 'text-gray-400'
-                        }`} />
+                              ? 'bg-red-100 dark:bg-red-900/30'
+                              : 'bg-gray-100 dark:bg-gray-800'
+                        }`}
+                      >
+                        <Icon
+                          className={`w-4 h-4 ${
+                            step.status === 'completed'
+                              ? 'text-green-600 dark:text-green-400'
+                              : step.status === 'rejected'
+                                ? 'text-red-600 dark:text-red-400'
+                                : 'text-gray-400'
+                          }`}
+                        />
                       </div>
                       <div className="flex-1">
-                        <p className={`font-medium text-sm ${
-                          step.status === 'completed'
-                            ? 'text-green-700 dark:text-green-400'
-                            : step.status === 'rejected'
-                            ? 'text-red-700 dark:text-red-400'
-                            : 'text-gray-500 dark:text-gray-400'
-                        }`}>
+                        <p
+                          className={`font-medium text-sm ${
+                            step.status === 'completed'
+                              ? 'text-green-700 dark:text-green-400'
+                              : step.status === 'rejected'
+                                ? 'text-red-700 dark:text-red-400'
+                                : 'text-gray-500 dark:text-gray-400'
+                          }`}
+                        >
                           {step.label}
                         </p>
                         {step.date && (
@@ -635,15 +708,15 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
               try {
                 // Небольшая задержка, чтобы дать серверу время сохранить файл
                 await new Promise(resolve => setTimeout(resolve, 500))
-                
+
                 const fullDoc = await api.getDocument(document.name)
                 setFullDocument(fullDoc)
-                
+
                 // Принудительно обновляем PDF, добавляя ключ к URL
                 setPdfKey(prev => prev + 1)
                 // Сбрасываем состояние загрузки для нового файла
                 setPdfLoading(true)
-                
+
                 console.log('Document reloaded after stamp application:', fullDoc)
                 console.log('New main_document:', fullDoc.main_document)
               } catch (error) {

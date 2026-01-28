@@ -10,7 +10,7 @@ interface SidebarProps {
 
 export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
   const { t } = useTranslation()
-  
+
   const navItems = [
     { id: 'dashboard' as const, label: t('navigation.dashboard'), icon: 'dashboard' as const },
     { id: 'documents' as const, label: t('navigation.documents'), icon: 'document' as const },
@@ -29,7 +29,7 @@ export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 p-3 space-y-1">
-        {navItems.map((item) => (
+        {navItems.map(item => (
           <button
             key={item.id}
             onClick={() => onNavigate(item.id)}
@@ -46,9 +46,7 @@ export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
         ))}
 
         <div className="pt-4 mt-4 border-t">
-          <button
-            className="w-full flex items-center gap-3 px-2 py-1.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-          >
+          <button className="w-full flex items-center gap-3 px-2 py-1.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
             <Icon name="settings" size={48} />
             {t('common.settings')}
           </button>

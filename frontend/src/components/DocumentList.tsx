@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { FileText, Calendar } from 'lucide-react'
 import { Card, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { Badge } from './ui/badge'
-import { api, type EDODocument } from '../lib/api'
+import { api } from '../lib/api'
+import type { EDODocument } from '../api/documents/types'
 
 export function DocumentList() {
   const [documents, setDocuments] = useState<EDODocument[]>([])
@@ -66,11 +67,11 @@ export function DocumentList() {
 
   return (
     <div className="space-y-4">
-      {documents.map((doc) => (
+      {documents.map(doc => (
         <Card
           key={doc.name}
           className="hover:shadow-md transition-shadow cursor-pointer"
-          onClick={() => window.location.href = `/edo-documents/${doc.name}`}
+          onClick={() => (window.location.href = `/edo-documents/${doc.name}`)}
         >
           <CardHeader>
             <div className="flex items-start justify-between">

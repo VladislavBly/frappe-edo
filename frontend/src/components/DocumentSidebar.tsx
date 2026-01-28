@@ -1,18 +1,32 @@
-import { FileText, Calendar, Search, Plus, X, Filter, ChevronDown, ChevronUp, Tag, FileType, AlertCircle, Building2 } from 'lucide-react'
+import {
+  FileText,
+  Calendar,
+  Search,
+  Plus,
+  X,
+  Filter,
+  ChevronDown,
+  ChevronUp,
+  Tag,
+  FileType,
+  AlertCircle,
+  Building2,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { Badge } from './ui/badge'
 import { Skeleton } from './ui/skeleton'
 import { Button } from './ui/button'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from './ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { cn } from '../lib/utils'
-import { api, type EDODocument, type EDOStatus, type EDODocumentType, type EDOPriority, type EDOCorrespondent } from '../lib/api'
+import { api } from '../lib/api'
+import type { EDODocument } from '../api/documents/types'
+import type {
+  EDOStatus,
+  EDODocumentType,
+  EDOPriority,
+  EDOCorrespondent,
+} from '../api/references/types'
 import { AddDocumentDialog } from './AddDocumentDialog'
 
 interface DocumentSidebarProps {
@@ -50,7 +64,7 @@ export function DocumentSidebar({
   const [priorityFilter, setPriorityFilter] = useState<string>('')
   const [correspondentFilter, setCorrespondentFilter] = useState<string>('')
   const searchInputRef = useRef<HTMLInputElement>(null)
-  
+
   // Reference data for filters
   const [statuses, setStatuses] = useState<EDOStatus[]>([])
   const [documentTypes, setDocumentTypes] = useState<EDODocumentType[]>([])
@@ -94,7 +108,14 @@ export function DocumentSidebar({
         correspondent: correspondentFilter || undefined,
       })
     }
-  }, [searchQuery, statusFilter, documentTypeFilter, priorityFilter, correspondentFilter, onFiltersChange])
+  }, [
+    searchQuery,
+    statusFilter,
+    documentTypeFilter,
+    priorityFilter,
+    correspondentFilter,
+    onFiltersChange,
+  ])
 
   // Debounced search - only apply filters after user stops typing
   useEffect(() => {
@@ -102,7 +123,14 @@ export function DocumentSidebar({
       applyFilters()
     }, 500) // Increased debounce time
     return () => clearTimeout(timer)
-  }, [searchQuery, statusFilter, documentTypeFilter, priorityFilter, correspondentFilter, applyFilters])
+  }, [
+    searchQuery,
+    statusFilter,
+    documentTypeFilter,
+    priorityFilter,
+    correspondentFilter,
+    applyFilters,
+  ])
 
   const clearFilters = () => {
     setSearchQuery('')
@@ -116,7 +144,7 @@ export function DocumentSidebar({
     statusFilter,
     documentTypeFilter,
     priorityFilter,
-    correspondentFilter
+    correspondentFilter,
   ].filter(Boolean).length
 
   const loadUserRoles = async () => {
@@ -200,7 +228,7 @@ export function DocumentSidebar({
               type="text"
               placeholder={t('documentSidebar.searchPlaceholder')}
               value={searchQuery}
-              onChange={(e) => {
+              onChange={e => {
                 const value = e.target.value
                 const wasFocused = document.activeElement === e.target
                 setSearchQuery(value)
@@ -255,12 +283,15 @@ export function DocumentSidebar({
                 <Tag className="w-3.5 h-3.5" />
                 Статус
               </label>
-              <Select value={statusFilter || undefined} onValueChange={(value) => setStatusFilter(value || '')}>
+              <Select
+                value={statusFilter || undefined}
+                onValueChange={value => setStatusFilter(value || '')}
+              >
                 <SelectTrigger className="h-9 text-sm">
                   <SelectValue placeholder="Выберите статус" />
                 </SelectTrigger>
                 <SelectContent>
-                  {statuses.map((status) => (
+                  {statuses.map(status => (
                     <SelectItem key={status.name} value={status.name}>
                       {status.status_name}
                     </SelectItem>
@@ -275,12 +306,15 @@ export function DocumentSidebar({
                 <FileType className="w-3.5 h-3.5" />
                 Тип документа
               </label>
-              <Select value={documentTypeFilter || undefined} onValueChange={(value) => setDocumentTypeFilter(value || '')}>
+              <Select
+                value={documentTypeFilter || undefined}
+                onValueChange={value => setDocumentTypeFilter(value || '')}
+              >
                 <SelectTrigger className="h-9 text-sm">
                   <SelectValue placeholder="Выберите тип" />
                 </SelectTrigger>
                 <SelectContent>
-                  {documentTypes.map((type) => (
+                  {documentTypes.map(type => (
                     <SelectItem key={type.name} value={type.name}>
                       {type.document_type_name}
                     </SelectItem>
@@ -295,12 +329,15 @@ export function DocumentSidebar({
                 <AlertCircle className="w-3.5 h-3.5" />
                 Приоритет
               </label>
-              <Select value={priorityFilter || undefined} onValueChange={(value) => setPriorityFilter(value || '')}>
+              <Select
+                value={priorityFilter || undefined}
+                onValueChange={value => setPriorityFilter(value || '')}
+              >
                 <SelectTrigger className="h-9 text-sm">
                   <SelectValue placeholder="Выберите приоритет" />
                 </SelectTrigger>
                 <SelectContent>
-                  {priorities.map((priority) => (
+                  {priorities.map(priority => (
                     <SelectItem key={priority.name} value={priority.name}>
                       {priority.priority_name}
                     </SelectItem>
@@ -315,12 +352,15 @@ export function DocumentSidebar({
                 <Building2 className="w-3.5 h-3.5" />
                 Корреспондент
               </label>
-              <Select value={correspondentFilter || undefined} onValueChange={(value) => setCorrespondentFilter(value || '')}>
+              <Select
+                value={correspondentFilter || undefined}
+                onValueChange={value => setCorrespondentFilter(value || '')}
+              >
                 <SelectTrigger className="h-9 text-sm">
                   <SelectValue placeholder="Выберите корреспондента" />
                 </SelectTrigger>
                 <SelectContent>
-                  {correspondents.map((corr) => (
+                  {correspondents.map(corr => (
                     <SelectItem key={corr.name} value={corr.name}>
                       {corr.correspondent_name}
                     </SelectItem>
@@ -347,11 +387,7 @@ export function DocumentSidebar({
         {/* Add document button */}
         {canCreateDocument && (
           <div className="p-3 border-b bg-muted/30">
-            <Button
-              onClick={handleAddDocument}
-              className="w-full"
-              size="sm"
-            >
+            <Button onClick={handleAddDocument} className="w-full" size="sm">
               <Plus className="w-4 h-4 mr-2" />
               {t('documentSidebar.addDocument')}
             </Button>
@@ -372,7 +408,9 @@ export function DocumentSidebar({
           {documents.length === 0 && !loading ? (
             <div className="flex flex-col items-center justify-center h-full text-center p-4">
               <FileText className="w-12 h-12 text-muted-foreground mb-3" />
-              <p className="text-sm text-muted-foreground mb-1">{t('documentSidebar.noDocuments')}</p>
+              <p className="text-sm text-muted-foreground mb-1">
+                {t('documentSidebar.noDocuments')}
+              </p>
               {(searchQuery || activeFiltersCount > 0) && (
                 <p className="text-xs text-muted-foreground">
                   Попробуйте изменить параметры поиска или фильтры
@@ -380,7 +418,7 @@ export function DocumentSidebar({
               )}
             </div>
           ) : (
-            documents.map((doc) => (
+            documents.map(doc => (
               <div
                 key={doc.name}
                 onClick={() => onSelectDocument(doc)}

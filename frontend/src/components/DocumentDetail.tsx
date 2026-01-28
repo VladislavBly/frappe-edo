@@ -1,12 +1,33 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, Calendar, FileText, Clock, CheckCircle2, XCircle, PenTool, History, Sparkles, Shield, Users, AlertCircle } from 'lucide-react'
+import {
+  ArrowLeft,
+  Calendar,
+  FileText,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  PenTool,
+  History,
+  Sparkles,
+  Shield,
+  Users,
+  AlertCircle,
+} from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { Badge } from './ui/badge'
 import { Button } from './ui/button'
-import { api, type EDODocument } from '../lib/api'
+import { api } from '../lib/api'
+import type { EDODocument } from '../api/documents/types'
 import { Progress } from './ui/progress'
 import { Textarea } from './ui/textarea'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog'
 
 interface DocumentDetailProps {
   documentName: string
@@ -60,8 +81,16 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
       console.log('canSign:', canSign)
       console.log('document.status:', currentDoc?.status)
       console.log('document.status_name:', currentDoc?.status_name)
-      console.log('Status matches "Новый":', currentDoc?.status === 'Новый' || currentDoc?.status_name === 'Новый')
-      console.log('Should show buttons:', canApprove && currentDoc && (currentDoc.status === 'Новый' || currentDoc.status_name === 'Новый'))
+      console.log(
+        'Status matches "Новый":',
+        currentDoc?.status === 'Новый' || currentDoc?.status_name === 'Новый'
+      )
+      console.log(
+        'Should show buttons:',
+        canApprove &&
+          currentDoc &&
+          (currentDoc.status === 'Новый' || currentDoc.status_name === 'Новый')
+      )
       console.log('=======================')
     } catch (err) {
       console.error('Failed to check permissions:', err)
@@ -170,9 +199,9 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
   // Get approval progress steps
   const getApprovalSteps = () => {
     if (!document) return []
-    
+
     const steps = []
-    
+
     // 1. Создан менеджером - всегда completed
     steps.push({
       label: 'Создан менеджером',
@@ -180,7 +209,7 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
       date: document.creation,
       icon: FileText,
     })
-    
+
     // 2. Обработан в приёмной
     if (document.reception_user && document.reception_decision_date) {
       steps.push({
@@ -197,7 +226,7 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
         icon: Clock,
       })
     }
-    
+
     // 3. Согласование директором (показываем только если документ уже обработан в приёмной)
     // Если документ еще не обработан в приёмной, этот шаг не показываем
     if (document.reception_user && document.reception_decision_date) {
@@ -225,7 +254,7 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
         })
       }
     }
-    
+
     // 4. Подписание исполнителями (только если есть исполнители И документ согласован директором)
     // Показываем этот шаг только если директор уже согласовал (или отказал, но тогда мы уже вернулись)
     const allExecutors = getAllExecutors()
@@ -254,7 +283,7 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
         })
       }
     }
-    
+
     // 5. Выполнено
     if (document.status === 'Выполнено') {
       steps.push({
@@ -271,7 +300,7 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
         icon: Sparkles,
       })
     }
-    
+
     return steps
   }
 
@@ -290,10 +319,8 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px]">
         <AlertCircle className="w-16 h-16 text-destructive mb-4" />
-        <div className="text-lg text-destructive mb-4">
-          {error || 'Документ не найден'}
-        </div>
-        <Button variant="outline" onClick={() => window.location.href = '/edo_documents'}>
+        <div className="text-lg text-destructive mb-4">{error || 'Документ не найден'}</div>
+        <Button variant="outline" onClick={() => (window.location.href = '/edo_documents')}>
           <ArrowLeft className="w-4 h-4 mr-2" />
           Вернуться к списку
         </Button>
@@ -310,7 +337,7 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
       <div className="bg-gradient-to-r from-slate-50 to-gray-50 dark:from-slate-900 dark:to-gray-900 rounded-lg p-6 border border-gray-200 dark:border-gray-800">
         <Button
           variant="ghost"
-          onClick={() => window.location.href = '/edo_documents'}
+          onClick={() => (window.location.href = '/edo_documents')}
           className="mb-4 hover:bg-white/50"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
@@ -347,39 +374,47 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
                 return (
                   <div key={index} className="flex items-start gap-4 group">
                     <div className="flex flex-col items-center">
-                      <div className={`relative p-2 rounded-full transition-all ${
-                        step.status === 'completed' 
-                          ? 'bg-green-100 dark:bg-green-900/30 ring-2 ring-green-500' 
-                          : step.status === 'rejected'
-                          ? 'bg-red-100 dark:bg-red-900/30 ring-2 ring-red-500'
-                          : 'bg-gray-100 dark:bg-gray-800 ring-2 ring-gray-300 dark:ring-gray-700'
-                      }`}>
-                        <Icon className={`w-5 h-5 ${
-                          step.status === 'completed' 
-                            ? 'text-green-600 dark:text-green-400' 
+                      <div
+                        className={`relative p-2 rounded-full transition-all ${
+                          step.status === 'completed'
+                            ? 'bg-green-100 dark:bg-green-900/30 ring-2 ring-green-500'
                             : step.status === 'rejected'
-                            ? 'text-red-600 dark:text-red-400'
-                            : 'text-gray-400'
-                        }`} />
+                              ? 'bg-red-100 dark:bg-red-900/30 ring-2 ring-red-500'
+                              : 'bg-gray-100 dark:bg-gray-800 ring-2 ring-gray-300 dark:ring-gray-700'
+                        }`}
+                      >
+                        <Icon
+                          className={`w-5 h-5 ${
+                            step.status === 'completed'
+                              ? 'text-green-600 dark:text-green-400'
+                              : step.status === 'rejected'
+                                ? 'text-red-600 dark:text-red-400'
+                                : 'text-gray-400'
+                          }`}
+                        />
                       </div>
                       {index < approvalSteps.length - 1 && (
-                        <div className={`w-0.5 h-12 mt-2 transition-all ${
-                          step.status === 'completed' 
-                            ? 'bg-gradient-to-b from-green-500 to-green-300' 
-                            : step.status === 'rejected'
-                            ? 'bg-gradient-to-b from-red-500 to-red-300'
-                            : 'bg-gray-300 dark:bg-gray-700'
-                        }`} />
+                        <div
+                          className={`w-0.5 h-12 mt-2 transition-all ${
+                            step.status === 'completed'
+                              ? 'bg-gradient-to-b from-green-500 to-green-300'
+                              : step.status === 'rejected'
+                                ? 'bg-gradient-to-b from-red-500 to-red-300'
+                                : 'bg-gray-300 dark:bg-gray-700'
+                          }`}
+                        />
                       )}
                     </div>
                     <div className="flex-1 pt-1">
-                      <p className={`font-semibold text-base transition-colors ${
-                        step.status === 'completed' 
-                          ? 'text-green-700 dark:text-green-400' 
-                          : step.status === 'rejected'
-                          ? 'text-red-700 dark:text-red-400'
-                          : 'text-gray-500 dark:text-gray-400'
-                      }`}>
+                      <p
+                        className={`font-semibold text-base transition-colors ${
+                          step.status === 'completed'
+                            ? 'text-green-700 dark:text-green-400'
+                            : step.status === 'rejected'
+                              ? 'text-red-700 dark:text-red-400'
+                              : 'text-gray-500 dark:text-gray-400'
+                        }`}
+                      >
                         {step.label}
                       </p>
                       {step.date && (
@@ -399,21 +434,47 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
 
       {/* Action Buttons - Debug Info (always visible for troubleshooting) */}
       <div className="mb-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg text-sm">
-        <p><strong>🔍 Debug Info:</strong></p>
-        <p>canDirectorApprove: <strong>{canDirectorApprove ? '✅ true' : '❌ false'}</strong></p>
-        <p>canExecutorSign: <strong>{canExecutorSign ? '✅ true' : '❌ false'}</strong></p>
-        <p>document.status: <strong>"{document?.status || 'undefined'}"</strong></p>
-        <p>document.status_name: <strong>"{document?.status_name || 'undefined'}"</strong></p>
-        <p>Status === 'Новый': <strong>{document?.status === 'Новый' ? '✅' : '❌'}</strong></p>
-        <p>status_name === 'Новый': <strong>{document?.status_name === 'Новый' ? '✅' : '❌'}</strong></p>
-        <p>Should show approve button: <strong>{(canDirectorApprove && document && (document.status === 'Новый' || document.status_name === 'Новый')) ? '✅ YES' : '❌ NO'}</strong></p>
+        <p>
+          <strong>🔍 Debug Info:</strong>
+        </p>
+        <p>
+          canDirectorApprove: <strong>{canDirectorApprove ? '✅ true' : '❌ false'}</strong>
+        </p>
+        <p>
+          canExecutorSign: <strong>{canExecutorSign ? '✅ true' : '❌ false'}</strong>
+        </p>
+        <p>
+          document.status: <strong>"{document?.status || 'undefined'}"</strong>
+        </p>
+        <p>
+          document.status_name: <strong>"{document?.status_name || 'undefined'}"</strong>
+        </p>
+        <p>
+          Status === 'Новый': <strong>{document?.status === 'Новый' ? '✅' : '❌'}</strong>
+        </p>
+        <p>
+          status_name === 'Новый':{' '}
+          <strong>{document?.status_name === 'Новый' ? '✅' : '❌'}</strong>
+        </p>
+        <p>
+          Should show approve button:{' '}
+          <strong>
+            {canDirectorApprove &&
+            document &&
+            (document.status === 'Новый' || document.status_name === 'Новый')
+              ? '✅ YES'
+              : '❌ NO'}
+          </strong>
+        </p>
       </div>
 
       {/* Action Buttons */}
       <div className="flex gap-3 mb-4">
-        {canDirectorApprove && document && (document.status === 'Новый' || document.status_name === 'Новый') && (
+        {canDirectorApprove &&
+          document &&
+          (document.status === 'Новый' || document.status_name === 'Новый') && (
             <>
-              <Button 
+              <Button
                 onClick={() => setApproveDialogOpen(true)}
                 className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl transition-all"
                 size="lg"
@@ -421,8 +482,8 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
                 <CheckCircle2 className="w-5 h-5 mr-2" />
                 Согласовать
               </Button>
-              <Button 
-                variant="destructive" 
+              <Button
+                variant="destructive"
                 onClick={() => setRejectDialogOpen(true)}
                 className="bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 shadow-lg hover:shadow-xl transition-all"
                 size="lg"
@@ -431,17 +492,19 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
                 Отказать
               </Button>
             </>
-        )}
-        {canExecutorSign && document && (document.status === 'На исполнении' || document.status_name === 'На исполнении') && (
-          <Button 
-            onClick={() => setSignDialogOpen(true)}
-            className="bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all"
-            size="lg"
-          >
-            <PenTool className="w-5 h-5 mr-2" />
-            Подписать документ
-          </Button>
-        )}
+          )}
+        {canExecutorSign &&
+          document &&
+          (document.status === 'На исполнении' || document.status_name === 'На исполнении') && (
+            <Button
+              onClick={() => setSignDialogOpen(true)}
+              className="bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white shadow-lg hover:shadow-xl transition-all"
+              size="lg"
+            >
+              <PenTool className="w-5 h-5 mr-2" />
+              Подписать документ
+            </Button>
+          )}
       </div>
 
       {/* Tabs */}
@@ -544,21 +607,32 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
                           {document.executor_full_name.charAt(0).toUpperCase()}
                         </div>
                         <div>
-                          <p className="font-medium text-gray-800 dark:text-gray-200">Исполнитель</p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400">{document.executor_full_name}</p>
+                          <p className="font-medium text-gray-800 dark:text-gray-200">
+                            Исполнитель
+                          </p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">
+                            {document.executor_full_name}
+                          </p>
                         </div>
                       </div>
                     )}
                     {document.co_executors && document.co_executors.length > 0 && (
                       <div>
-                        <p className="font-medium text-gray-800 dark:text-gray-200 mb-2">Соисполнители:</p>
+                        <p className="font-medium text-gray-800 dark:text-gray-200 mb-2">
+                          Соисполнители:
+                        </p>
                         <div className="space-y-2">
                           {document.co_executors.map((co, idx) => (
-                            <div key={idx} className="flex items-center gap-3 p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
+                            <div
+                              key={idx}
+                              className="flex items-center gap-3 p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg"
+                            >
                               <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white font-semibold">
                                 {(co.user_full_name || co.user).charAt(0).toUpperCase()}
                               </div>
-                              <p className="text-gray-700 dark:text-gray-300">{co.user_full_name || co.user}</p>
+                              <p className="text-gray-700 dark:text-gray-300">
+                                {co.user_full_name || co.user}
+                              </p>
                             </div>
                           ))}
                         </div>
@@ -604,7 +678,9 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
                       <Calendar className="w-5 h-5 text-blue-600" />
                       <div>
                         <p className="text-xs text-muted-foreground">Входящая дата</p>
-                        <p className="font-medium">{new Date(document.incoming_date).toLocaleDateString('ru-RU')}</p>
+                        <p className="font-medium">
+                          {new Date(document.incoming_date).toLocaleDateString('ru-RU')}
+                        </p>
                       </div>
                     </div>
                   )}
@@ -614,7 +690,9 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
                       <Calendar className="w-5 h-5 text-green-600" />
                       <div>
                         <p className="text-xs text-muted-foreground">Исходящая дата</p>
-                        <p className="font-medium">{new Date(document.outgoing_date).toLocaleDateString('ru-RU')}</p>
+                        <p className="font-medium">
+                          {new Date(document.outgoing_date).toLocaleDateString('ru-RU')}
+                        </p>
                       </div>
                     </div>
                   )}
@@ -624,7 +702,9 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
                       <Clock className="w-5 h-5 text-purple-600" />
                       <div>
                         <p className="text-xs text-muted-foreground">Создан</p>
-                        <p className="font-medium text-sm">{new Date(document.creation).toLocaleString('ru-RU')}</p>
+                        <p className="font-medium text-sm">
+                          {new Date(document.creation).toLocaleString('ru-RU')}
+                        </p>
                       </div>
                     </div>
                   )}
@@ -646,7 +726,9 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
               {signatureProgress.total > 0 ? (
                 <div className="mb-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 rounded-lg border-2 border-blue-200 dark:border-blue-800">
                   <div className="flex justify-between text-sm mb-3">
-                    <span className="font-semibold text-gray-700 dark:text-gray-300">Прогресс подписания</span>
+                    <span className="font-semibold text-gray-700 dark:text-gray-300">
+                      Прогресс подписания
+                    </span>
                     <span className="font-bold text-blue-600 dark:text-blue-400">
                       {signatureProgress.signed} из {signatureProgress.total}
                     </span>
@@ -661,60 +743,81 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
                 </div>
               )}
               <div className="space-y-4">
-                {getAllExecutors().length > 0 ? getAllExecutors().map((executorId) => {
-                  const signature = document.signatures?.find(sig => sig.user === executorId)
-                  const executorInfo = document.executor === executorId
-                    ? { name: document.executor_full_name || executorId, image: document.executor_image }
-                    : document.co_executors?.find(co => co.user === executorId)
-                      ? { name: document.co_executors.find(co => co.user === executorId)?.user_full_name || executorId, image: document.co_executors.find(co => co.user === executorId)?.user_image }
-                      : { name: executorId, image: undefined }
+                {getAllExecutors().length > 0 ? (
+                  getAllExecutors().map(executorId => {
+                    const signature = document.signatures?.find(sig => sig.user === executorId)
+                    const executorInfo =
+                      document.executor === executorId
+                        ? {
+                            name: document.executor_full_name || executorId,
+                            image: document.executor_image,
+                          }
+                        : document.co_executors?.find(co => co.user === executorId)
+                          ? {
+                              name:
+                                document.co_executors.find(co => co.user === executorId)
+                                  ?.user_full_name || executorId,
+                              image: document.co_executors.find(co => co.user === executorId)
+                                ?.user_image,
+                            }
+                          : { name: executorId, image: undefined }
 
-                  return (
-                    <div 
-                      key={executorId} 
-                      className={`flex items-center gap-4 p-5 rounded-xl border-2 transition-all ${
-                        signature 
-                          ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 shadow-md' 
-                          : 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 hover:shadow-md'
-                      }`}
-                    >
-                      {executorInfo.image ? (
-                        <img src={executorInfo.image} alt={executorInfo.name} className="w-14 h-14 rounded-full ring-2 ring-offset-2 ring-blue-500" />
-                      ) : (
-                        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold text-lg ring-2 ring-offset-2 ring-blue-500">
-                          {executorInfo.name.charAt(0).toUpperCase()}
-                        </div>
-                      )}
-                      <div className="flex-1">
-                        <p className="font-semibold text-gray-800 dark:text-gray-200">{executorInfo.name}</p>
-                        {signature ? (
-                          <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                            <p className="flex items-center gap-1">
-                              <CheckCircle2 className="w-4 h-4 text-green-600" />
-                              Подписан: {signature.signed_at ? new Date(signature.signed_at).toLocaleString('ru-RU') : ''}
-                            </p>
-                            {signature.comment && (
-                              <p className="mt-2 p-2 bg-white dark:bg-gray-800 rounded text-gray-700 dark:text-gray-300">
-                                {signature.comment}
+                    return (
+                      <div
+                        key={executorId}
+                        className={`flex items-center gap-4 p-5 rounded-xl border-2 transition-all ${
+                          signature
+                            ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800 shadow-md'
+                            : 'bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800 hover:shadow-md'
+                        }`}
+                      >
+                        {executorInfo.image ? (
+                          <img
+                            src={executorInfo.image}
+                            alt={executorInfo.name}
+                            className="w-14 h-14 rounded-full ring-2 ring-offset-2 ring-blue-500"
+                          />
+                        ) : (
+                          <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold text-lg ring-2 ring-offset-2 ring-blue-500">
+                            {executorInfo.name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <p className="font-semibold text-gray-800 dark:text-gray-200">
+                            {executorInfo.name}
+                          </p>
+                          {signature ? (
+                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                              <p className="flex items-center gap-1">
+                                <CheckCircle2 className="w-4 h-4 text-green-600" />
+                                Подписан:{' '}
+                                {signature.signed_at
+                                  ? new Date(signature.signed_at).toLocaleString('ru-RU')
+                                  : ''}
                               </p>
-                            )}
+                              {signature.comment && (
+                                <p className="mt-2 p-2 bg-white dark:bg-gray-800 rounded text-gray-700 dark:text-gray-300">
+                                  {signature.comment}
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <p className="text-sm text-muted-foreground mt-1">Ожидает подписания</p>
+                          )}
+                        </div>
+                        {signature ? (
+                          <div className="p-2 bg-green-100 dark:bg-green-900/50 rounded-full">
+                            <CheckCircle2 className="w-6 h-6 text-green-600 dark:text-green-400" />
                           </div>
                         ) : (
-                          <p className="text-sm text-muted-foreground mt-1">Ожидает подписания</p>
+                          <div className="w-8 h-8 rounded-full border-2 border-gray-300 dark:border-gray-600 flex items-center justify-center">
+                            <div className="w-3 h-3 rounded-full bg-gray-300 dark:bg-gray-600" />
+                          </div>
                         )}
                       </div>
-                      {signature ? (
-                        <div className="p-2 bg-green-100 dark:bg-green-900/50 rounded-full">
-                          <CheckCircle2 className="w-6 h-6 text-green-600 dark:text-green-400" />
-                        </div>
-                      ) : (
-                        <div className="w-8 h-8 rounded-full border-2 border-gray-300 dark:border-gray-600 flex items-center justify-center">
-                          <div className="w-3 h-3 rounded-full bg-gray-300 dark:bg-gray-600" />
-                        </div>
-                      )}
-                    </div>
-                  )
-                }) : (
+                    )
+                  })
+                ) : (
                   <div className="text-center py-8 text-muted-foreground">
                     <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
                     <p>Нет назначенных исполнителей</p>
@@ -738,30 +841,39 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
                 {approvalSteps.map((step, index) => {
                   const Icon = step.icon
                   return (
-                    <div key={index} className="flex items-start gap-4 pb-6 border-b last:border-0 last:pb-0">
-                      <div className={`p-2 rounded-full ${
-                        step.status === 'completed' 
-                          ? 'bg-green-100 dark:bg-green-900/30' 
-                          : step.status === 'rejected'
-                          ? 'bg-red-100 dark:bg-red-900/30'
-                          : 'bg-gray-100 dark:bg-gray-800'
-                      }`}>
-                        <Icon className={`w-5 h-5 ${
-                          step.status === 'completed' 
-                            ? 'text-green-600 dark:text-green-400' 
+                    <div
+                      key={index}
+                      className="flex items-start gap-4 pb-6 border-b last:border-0 last:pb-0"
+                    >
+                      <div
+                        className={`p-2 rounded-full ${
+                          step.status === 'completed'
+                            ? 'bg-green-100 dark:bg-green-900/30'
                             : step.status === 'rejected'
-                            ? 'text-red-600 dark:text-red-400'
-                            : 'text-gray-400'
-                        }`} />
+                              ? 'bg-red-100 dark:bg-red-900/30'
+                              : 'bg-gray-100 dark:bg-gray-800'
+                        }`}
+                      >
+                        <Icon
+                          className={`w-5 h-5 ${
+                            step.status === 'completed'
+                              ? 'text-green-600 dark:text-green-400'
+                              : step.status === 'rejected'
+                                ? 'text-red-600 dark:text-red-400'
+                                : 'text-gray-400'
+                          }`}
+                        />
                       </div>
                       <div className="flex-1">
-                        <p className={`font-semibold ${
-                          step.status === 'completed' 
-                            ? 'text-green-700 dark:text-green-400' 
-                            : step.status === 'rejected'
-                            ? 'text-red-700 dark:text-red-400'
-                            : 'text-gray-500 dark:text-gray-400'
-                        }`}>
+                        <p
+                          className={`font-semibold ${
+                            step.status === 'completed'
+                              ? 'text-green-700 dark:text-green-400'
+                              : step.status === 'rejected'
+                                ? 'text-red-700 dark:text-red-400'
+                                : 'text-gray-500 dark:text-gray-400'
+                          }`}
+                        >
                           {step.label}
                         </p>
                         {step.date && (
@@ -789,7 +901,8 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
               Согласовать документ
             </DialogTitle>
             <DialogDescription className="text-base pt-2">
-              Вы уверены, что хотите согласовать этот документ? После согласования документ будет отправлен исполнителям.
+              Вы уверены, что хотите согласовать этот документ? После согласования документ будет
+              отправлен исполнителям.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -797,7 +910,7 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
               <label className="text-sm font-medium mb-2 block">Комментарий (необязательно)</label>
               <Textarea
                 value={comment}
-                onChange={(e) => setComment(e.target.value)}
+                onChange={e => setComment(e.target.value)}
                 placeholder="Введите комментарий..."
                 rows={4}
                 className="resize-none"
@@ -808,8 +921,8 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
             <Button variant="outline" onClick={() => setApproveDialogOpen(false)}>
               Отмена
             </Button>
-            <Button 
-              onClick={handleApprove} 
+            <Button
+              onClick={handleApprove}
               disabled={actionLoading}
               className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
             >
@@ -827,7 +940,8 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
               Отказать в согласовании
             </DialogTitle>
             <DialogDescription className="text-base pt-2">
-              Вы уверены, что хотите отказать в согласовании этого документа? После отказа документ не будет отправлен исполнителям.
+              Вы уверены, что хотите отказать в согласовании этого документа? После отказа документ
+              не будет отправлен исполнителям.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -835,7 +949,7 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
               <label className="text-sm font-medium mb-2 block">Причина отказа</label>
               <Textarea
                 value={comment}
-                onChange={(e) => setComment(e.target.value)}
+                onChange={e => setComment(e.target.value)}
                 placeholder="Укажите причину отказа..."
                 rows={4}
                 className="resize-none"
@@ -846,9 +960,9 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
             <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>
               Отмена
             </Button>
-            <Button 
-              variant="destructive" 
-              onClick={handleReject} 
+            <Button
+              variant="destructive"
+              onClick={handleReject}
               disabled={actionLoading}
               className="bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700"
             >
@@ -866,7 +980,8 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
               Подписать документ
             </DialogTitle>
             <DialogDescription className="text-base pt-2">
-              Подписав документ, вы подтверждаете, что ознакомились с его содержанием и готовы приступить к исполнению.
+              Подписав документ, вы подтверждаете, что ознакомились с его содержанием и готовы
+              приступить к исполнению.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -874,7 +989,7 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
               <label className="text-sm font-medium mb-2 block">Комментарий (необязательно)</label>
               <Textarea
                 value={comment}
-                onChange={(e) => setComment(e.target.value)}
+                onChange={e => setComment(e.target.value)}
                 placeholder="Введите комментарий..."
                 rows={4}
                 className="resize-none"
@@ -885,8 +1000,8 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
             <Button variant="outline" onClick={() => setSignDialogOpen(false)}>
               Отмена
             </Button>
-            <Button 
-              onClick={handleSign} 
+            <Button
+              onClick={handleSign}
               disabled={actionLoading}
               className="bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700"
             >

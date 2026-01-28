@@ -1,20 +1,43 @@
-import { useState, useEffect } from 'react'
-import { Download, Printer, User, Users, Edit, CheckCircle2, XCircle, PenTool, FileCheck, FileText } from 'lucide-react'
+import { useState } from 'react'
+import {
+  Download,
+  Printer,
+  User,
+  Users,
+  Edit,
+  CheckCircle2,
+  XCircle,
+  PenTool,
+  FileCheck,
+  FileText,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from './ui/button'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog'
 import { Textarea } from './ui/textarea'
 import { Label } from './ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from './ui/select'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { UserSelect, UserMultiSelect } from './ui/user-select'
-import type { EDODocument, EDOResolution, User as UserType } from '../lib/api'
-import { api } from '../lib/api'
+import {
+  useCanDirectorApprove,
+  useCanExecutorSign,
+  useCanReceptionSubmit,
+  useDirectorApproveDocument,
+  useDirectorRejectDocument,
+  useExecutorSignDocument,
+  useReceptionSubmitToDirector,
+  useUpdateDocument,
+} from '../api/documents/api'
+import { useResolutions } from '../api/references/api'
+import { useUsers } from '../api/users/api'
+import type { EDODocument } from '../api/documents/types'
 
 interface DocumentMetadataProps {
   document: EDODocument | null
@@ -23,117 +46,94 @@ interface DocumentMetadataProps {
   onDocumentUpdate?: (doc: EDODocument) => void
 }
 
-export function DocumentMetadata({ document, canEdit = false, onEdit, onDocumentUpdate }: DocumentMetadataProps) {
+export function DocumentMetadata({
+  document,
+  canEdit = false,
+  onEdit,
+  onDocumentUpdate,
+}: DocumentMetadataProps) {
   const { t, i18n } = useTranslation()
-  const [canDirectorApprove, setCanDirectorApprove] = useState(false)
-  const [canExecutorSign, setCanExecutorSign] = useState(false)
-  const [canReceptionSubmit, setCanReceptionSubmit] = useState(false)
+
+  // Use hooks for permissions
+  const { data: canDirectorApprove = false } = useCanDirectorApprove()
+  const { data: canExecutorSign = false } = useCanExecutorSign(document?.name || null)
+  const { data: canReceptionSubmit = false } = useCanReceptionSubmit()
+
+  // Use hooks for mutations
+  const directorApproveMutation = useDirectorApproveDocument()
+  const directorRejectMutation = useDirectorRejectDocument()
+  const executorSignMutation = useExecutorSignDocument()
+  const receptionSubmitMutation = useReceptionSubmitToDirector()
+  const updateDocumentMutation = useUpdateDocument()
+
+  // Use hooks for reference data
+  const { data: resolutionsData = [] } = useResolutions()
+  const { data: usersData = [] } = useUsers()
   const [approveDialogOpen, setApproveDialogOpen] = useState(false)
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
   const [signDialogOpen, setSignDialogOpen] = useState(false)
   const [receptionDialogOpen, setReceptionDialogOpen] = useState(false)
   const [directorEditDialogOpen, setDirectorEditDialogOpen] = useState(false)
   const [comment, setComment] = useState('')
-  const [actionLoading, setActionLoading] = useState(false)
-  
+
   // Reception dialog state
   const [resolution, setResolution] = useState('')
   const [resolutionText, setResolutionText] = useState('')
   const [useCustomResolution, setUseCustomResolution] = useState(false)
   const [executor, setExecutor] = useState('')
   const [coExecutors, setCoExecutors] = useState<string[]>([])
-  const [resolutions, setResolutions] = useState<EDOResolution[]>([])
-  const [users, setUsers] = useState<UserType[]>([])
 
-  useEffect(() => {
-    if (document) {
-      checkPermissions()
-    }
-  }, [document?.name, document?.status, document?.director_approved, document?.director_rejected])
-
-  const checkPermissions = async () => {
-    if (!document) return
-    try {
-      const [canApprove, canSign, canReception] = await Promise.all([
-        api.canDirectorApprove(),
-        api.canExecutorSign(document.name),
-        api.canReceptionSubmit(),
-      ])
-      setCanDirectorApprove(canApprove)
-      setCanExecutorSign(canSign)
-      setCanReceptionSubmit(canReception)
-      
-      // Load data for reception dialog if needed (reception or director)
-      if ((canReception && document.status === 'Новый') || (canApprove && document.status === 'На рассмотрении')) {
-        const [resolutionsData, usersData] = await Promise.all([
-          api.getResolutions(),
-          api.getUsers(),
-        ])
-        setResolutions(resolutionsData)
-        setUsers(usersData)
-      }
-    } catch (err) {
-      console.error('Failed to check permissions:', err)
-    }
-  }
+  const resolutions = resolutionsData
+  const users = usersData
 
   const handleApprove = async () => {
     if (!document) return
     try {
-      setActionLoading(true)
-      await api.directorApproveDocument(document.name, comment)
+      const updated = await directorApproveMutation.mutateAsync({
+        name: document.name,
+        comment,
+      })
       setApproveDialogOpen(false)
       setComment('')
-      // Force reload document after approval
       if (onDocumentUpdate) {
-        const updated = await api.getDocument(document.name)
         onDocumentUpdate(updated)
       }
-      await checkPermissions()
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Ошибка при согласовании')
-    } finally {
-      setActionLoading(false)
     }
   }
 
   const handleReject = async () => {
     if (!document) return
     try {
-      setActionLoading(true)
-      await api.directorRejectDocument(document.name, comment)
+      const updated = await directorRejectMutation.mutateAsync({
+        name: document.name,
+        comment,
+      })
       setRejectDialogOpen(false)
       setComment('')
-      // Force reload document after rejection
       if (onDocumentUpdate) {
-        const updated = await api.getDocument(document.name)
         onDocumentUpdate(updated)
       }
-      await checkPermissions()
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Ошибка при отказе')
-    } finally {
-      setActionLoading(false)
     }
   }
 
   const handleSign = async () => {
     if (!document) return
     try {
-      setActionLoading(true)
-      await api.executorSignDocument(document.name, comment)
+      const updated = await executorSignMutation.mutateAsync({
+        name: document.name,
+        comment,
+      })
       setSignDialogOpen(false)
       setComment('')
-      // Force reload document after signing
       if (onDocumentUpdate) {
-        const updated = await api.getDocument(document.name)
         onDocumentUpdate(updated)
       }
-      await checkPermissions()
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Ошибка при подписании')
-    } finally {
-      setActionLoading(false)
     }
   }
 
@@ -152,30 +152,24 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
       return
     }
     try {
-      setActionLoading(true)
-      await api.receptionSubmitToDirector(
-        document.name, 
-        useCustomResolution ? undefined : resolution,
-        useCustomResolution ? resolutionText : undefined,
-        executor, 
-        coExecutors
-      )
+      const updated = await receptionSubmitMutation.mutateAsync({
+        documentName: document.name,
+        resolution: useCustomResolution ? undefined : resolution,
+        resolutionText: useCustomResolution ? resolutionText : undefined,
+        executor,
+        coExecutors,
+      })
       setReceptionDialogOpen(false)
       setResolution('')
       setResolutionText('')
       setUseCustomResolution(false)
       setExecutor('')
       setCoExecutors([])
-      // Force reload document after submission
       if (onDocumentUpdate) {
-        const updated = await api.getDocument(document.name)
         onDocumentUpdate(updated)
       }
-      await checkPermissions()
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Ошибка при отправке директору')
-    } finally {
-      setActionLoading(false)
     }
   }
 
@@ -194,13 +188,14 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
       return
     }
     try {
-      setActionLoading(true)
-      // Update document with new resolution and executors
-      await api.updateDocument(document.name, {
-        resolution: useCustomResolution ? undefined : resolution,
-        resolution_text: useCustomResolution ? resolutionText : undefined,
-        executor: executor,
-        co_executors: coExecutors.map(user => ({ user }))
+      const updated = await updateDocumentMutation.mutateAsync({
+        name: document.name,
+        updates: {
+          resolution: useCustomResolution ? undefined : resolution,
+          resolution_text: useCustomResolution ? resolutionText : undefined,
+          executor: executor,
+          co_executors: coExecutors.map(user => ({ user })),
+        },
       })
       setDirectorEditDialogOpen(false)
       setResolution('')
@@ -208,15 +203,11 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
       setUseCustomResolution(false)
       setExecutor('')
       setCoExecutors([])
-      // Force reload document after update
       if (onDocumentUpdate) {
-        const updated = await api.getDocument(document.name)
         onDocumentUpdate(updated)
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Ошибка при обновлении резолюции и исполнителей')
-    } finally {
-      setActionLoading(false)
     }
   }
 
@@ -225,10 +216,19 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
   }
 
   const getStatusColor = (status: string) => {
-    if (status === t('documents.status.signed') || status === 'Подписан' || status === 'Выполнено' || status === 'Согласован') {
+    if (
+      status === t('documents.status.signed') ||
+      status === 'Подписан' ||
+      status === 'Выполнено' ||
+      status === 'Согласован'
+    ) {
       return 'text-green-600'
     }
-    if (status === t('documents.status.pending') || status === 'На подписании' || status === 'На исполнении') {
+    if (
+      status === t('documents.status.pending') ||
+      status === 'На подписании' ||
+      status === 'На исполнении'
+    ) {
       return 'text-orange-500'
     }
     if (status === t('documents.status.archived') || status === 'Архив') {
@@ -260,7 +260,9 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
 
           <div className="grid grid-cols-2 gap-x-4 gap-y-3">
             <div className="col-span-2">
-              <p className="text-xs text-muted-foreground">{t('documentMetadata.documentNumber')}</p>
+              <p className="text-xs text-muted-foreground">
+                {t('documentMetadata.documentNumber')}
+              </p>
               <p className="font-medium">{document.name}</p>
             </div>
 
@@ -301,15 +303,21 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
 
             {document.document_type && (
               <div>
-                <p className="text-xs text-muted-foreground">{t('documentMetadata.documentType')}</p>
-                <p className="font-medium">{document.document_type_name || document.document_type}</p>
+                <p className="text-xs text-muted-foreground">
+                  {t('documentMetadata.documentType')}
+                </p>
+                <p className="font-medium">
+                  {document.document_type_name || document.document_type}
+                </p>
               </div>
             )}
 
             {document.correspondent && (
               <div>
                 <p className="text-xs text-muted-foreground">Корреспондент</p>
-                <p className="font-medium">{document.correspondent_name || document.correspondent}</p>
+                <p className="font-medium">
+                  {document.correspondent_name || document.correspondent}
+                </p>
               </div>
             )}
 
@@ -322,22 +330,24 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
 
             <div>
               <p className="text-xs text-muted-foreground">{t('documentMetadata.status')}</p>
-              <p className={`font-medium ${getStatusColor(document.status)}`}>
-                {document.status}
-              </p>
+              <p className={`font-medium ${getStatusColor(document.status)}`}>{document.status}</p>
             </div>
 
             {document.classification && (
               <div>
                 <p className="text-xs text-muted-foreground">Гриф</p>
-                <p className="font-medium">{document.classification_name || document.classification}</p>
+                <p className="font-medium">
+                  {document.classification_name || document.classification}
+                </p>
               </div>
             )}
 
             {document.delivery_method && (
               <div>
                 <p className="text-xs text-muted-foreground">Способ доставки</p>
-                <p className="font-medium">{document.delivery_method_name || document.delivery_method}</p>
+                <p className="font-medium">
+                  {document.delivery_method_name || document.delivery_method}
+                </p>
               </div>
             )}
 
@@ -351,13 +361,15 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
         </div>
 
         {/* Resolution section - красивый блок резолюции */}
-        {(document.resolution_name || document.resolution_text || document.resolution_text_from_link) && (
+        {(document.resolution_name ||
+          document.resolution_text ||
+          document.resolution_text_from_link) && (
           <div>
-            <h3 className="text-sm font-medium text-muted-foreground mb-3">
-              Резолюция
-            </h3>
+            <h3 className="text-sm font-medium text-muted-foreground mb-3">Резолюция</h3>
             <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 rounded-lg border border-purple-200 dark:border-purple-800 p-4 space-y-4">
-              {(document.resolution_name || document.resolution_text || document.resolution_text_from_link) && (
+              {(document.resolution_name ||
+                document.resolution_text ||
+                document.resolution_text_from_link) && (
                 <div className="space-y-2">
                   {document.resolution_name && (
                     <div className="flex items-center gap-2">
@@ -374,9 +386,10 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
                   )}
                 </div>
               )}
-              
+
               {/* Исполнитель и соисполнители внутри блока резолюции */}
-              {(document.executor || (document.co_executors && document.co_executors.length > 0)) && (
+              {(document.executor ||
+                (document.co_executors && document.co_executors.length > 0)) && (
                 <div className="pt-3 border-t border-purple-200 dark:border-purple-800 space-y-3">
                   {document.executor && (
                     <div className="flex items-center gap-3">
@@ -439,67 +452,72 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
         )}
 
         {/* Executors section - показываем только если нет резолюции */}
-        {!(document.resolution_name || document.resolution_text || document.resolution_text_from_link) && 
-         (document.executor || (document.co_executors && document.co_executors.length > 0)) && (
-          <div>
-            <h3 className="text-sm font-medium text-muted-foreground mb-3">
-              Исполнители
-            </h3>
-            <div className="space-y-3">
-              {document.executor && (
-                <div className="flex items-center gap-3 p-2 bg-blue-50 rounded-lg">
-                  {document.executor_image ? (
-                    <img
-                      src={document.executor_image}
-                      alt=""
-                      className="w-8 h-8 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
-                      <User className="w-4 h-4 text-white" />
+        {!(
+          document.resolution_name ||
+          document.resolution_text ||
+          document.resolution_text_from_link
+        ) &&
+          (document.executor || (document.co_executors && document.co_executors.length > 0)) && (
+            <div>
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Исполнители</h3>
+              <div className="space-y-3">
+                {document.executor && (
+                  <div className="flex items-center gap-3 p-2 bg-blue-50 rounded-lg">
+                    {document.executor_image ? (
+                      <img
+                        src={document.executor_image}
+                        alt=""
+                        className="w-8 h-8 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
+                        <User className="w-4 h-4 text-white" />
+                      </div>
+                    )}
+                    <div>
+                      <p className="font-medium text-sm">
+                        {document.executor_full_name || document.executor}
+                      </p>
+                      <p className="text-xs text-blue-600">Исполнитель</p>
                     </div>
-                  )}
-                  <div>
-                    <p className="font-medium text-sm">{document.executor_full_name || document.executor}</p>
-                    <p className="text-xs text-blue-600">Исполнитель</p>
                   </div>
-                </div>
-              )}
+                )}
 
-              {document.co_executors && document.co_executors.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Users className="w-3 h-3" />
-                    Соисполнители ({document.co_executors.length})
-                  </p>
-                  {document.co_executors.map((coExec, index) => (
-                    <div key={index} className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg">
-                      {coExec.user_image ? (
-                        <img
-                          src={coExec.user_image}
-                          alt=""
-                          className="w-7 h-7 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-7 h-7 rounded-full bg-gray-400 flex items-center justify-center">
-                          <User className="w-3 h-3 text-white" />
-                        </div>
-                      )}
-                      <p className="text-sm">{coExec.user_full_name || coExec.user}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
+                {document.co_executors && document.co_executors.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <Users className="w-3 h-3" />
+                      Соисполнители ({document.co_executors.length})
+                    </p>
+                    {document.co_executors.map((coExec, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center gap-3 p-2 bg-gray-50 rounded-lg"
+                      >
+                        {coExec.user_image ? (
+                          <img
+                            src={coExec.user_image}
+                            alt=""
+                            className="w-7 h-7 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-gray-400 flex items-center justify-center">
+                            <User className="w-3 h-3 text-white" />
+                          </div>
+                        )}
+                        <p className="text-sm">{coExec.user_full_name || coExec.user}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
         {/* Brief content */}
         {document.brief_content && (
           <div>
-            <h3 className="text-sm font-medium text-muted-foreground mb-3">
-              Краткое содержание
-            </h3>
+            <h3 className="text-sm font-medium text-muted-foreground mb-3">Краткое содержание</h3>
             <p className="text-sm whitespace-pre-wrap">{document.brief_content}</p>
           </div>
         )}
@@ -524,8 +542,8 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
           <div className="space-y-2">
             {/* Reception submit button */}
             {canReceptionSubmit && isNewStatus && (
-              <Button 
-                className="w-full bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white shadow-md" 
+              <Button
+                className="w-full bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700 text-white shadow-md"
                 size="sm"
                 onClick={() => setReceptionDialogOpen(true)}
               >
@@ -537,8 +555,8 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
             {/* Director buttons */}
             {canDirectorApprove && isOnReview && (
               <>
-                <Button 
-                  className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white shadow-md" 
+                <Button
+                  className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white shadow-md"
                   size="sm"
                   onClick={() => {
                     // Pre-fill dialog with current values
@@ -550,24 +568,26 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
                       setUseCustomResolution(true)
                     }
                     setExecutor(document.executor || '')
-                    setCoExecutors(document.co_executors?.map((ce: any) => ce.user).filter(Boolean) || [])
+                    setCoExecutors(
+                      document.co_executors?.map((ce: any) => ce.user).filter(Boolean) || []
+                    )
                     setDirectorEditDialogOpen(true)
                   }}
                 >
                   <Edit className="w-4 h-4 mr-2" />
                   Изменить резолюцию и исполнителей
                 </Button>
-                <Button 
-                  className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-md" 
+                <Button
+                  className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-md"
                   size="sm"
                   onClick={() => setApproveDialogOpen(true)}
                 >
                   <CheckCircle2 className="w-4 h-4 mr-2" />
                   Согласовать
                 </Button>
-                <Button 
-                  variant="destructive" 
-                  className="w-full bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 shadow-md" 
+                <Button
+                  variant="destructive"
+                  className="w-full bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 shadow-md"
                   size="sm"
                   onClick={() => setRejectDialogOpen(true)}
                 >
@@ -579,8 +599,8 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
 
             {/* Executor sign button */}
             {canExecutorSign && isInExecution && (
-              <Button 
-                className="w-full bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white shadow-md" 
+              <Button
+                className="w-full bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700 text-white shadow-md"
                 size="sm"
                 onClick={() => setSignDialogOpen(true)}
               >
@@ -616,7 +636,8 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
               Согласовать документ
             </DialogTitle>
             <DialogDescription className="text-base pt-2">
-              Вы уверены, что хотите согласовать этот документ? После согласования документ будет отправлен исполнителям.
+              Вы уверены, что хотите согласовать этот документ? После согласования документ будет
+              отправлен исполнителям.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -624,7 +645,7 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
               <label className="text-sm font-medium mb-2 block">Комментарий (необязательно)</label>
               <Textarea
                 value={comment}
-                onChange={(e) => setComment(e.target.value)}
+                onChange={e => setComment(e.target.value)}
                 placeholder="Введите комментарий..."
                 rows={4}
                 className="resize-none"
@@ -635,12 +656,12 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
             <Button variant="outline" onClick={() => setApproveDialogOpen(false)}>
               Отмена
             </Button>
-            <Button 
-              onClick={handleApprove} 
-              disabled={actionLoading}
+            <Button
+              onClick={handleApprove}
+              disabled={directorApproveMutation.isPending}
               className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
             >
-              {actionLoading ? 'Согласование...' : 'Согласовать'}
+              {directorApproveMutation.isPending ? 'Согласование...' : 'Согласовать'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -654,7 +675,8 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
               Отказать в согласовании
             </DialogTitle>
             <DialogDescription className="text-base pt-2">
-              Вы уверены, что хотите отказать в согласовании этого документа? После отказа документ не будет отправлен исполнителям.
+              Вы уверены, что хотите отказать в согласовании этого документа? После отказа документ
+              не будет отправлен исполнителям.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -662,7 +684,7 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
               <label className="text-sm font-medium mb-2 block">Причина отказа</label>
               <Textarea
                 value={comment}
-                onChange={(e) => setComment(e.target.value)}
+                onChange={e => setComment(e.target.value)}
                 placeholder="Укажите причину отказа..."
                 rows={4}
                 className="resize-none"
@@ -673,13 +695,13 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
             <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>
               Отмена
             </Button>
-            <Button 
-              variant="destructive" 
-              onClick={handleReject} 
-              disabled={actionLoading}
+            <Button
+              variant="destructive"
+              onClick={handleReject}
+              disabled={directorRejectMutation.isPending}
               className="bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700"
             >
-              {actionLoading ? 'Отказ...' : 'Отказать'}
+              {directorRejectMutation.isPending ? 'Отказ...' : 'Отказать'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -693,7 +715,8 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
               Подписать документ
             </DialogTitle>
             <DialogDescription className="text-base pt-2">
-              Подписав документ, вы подтверждаете, что ознакомились с его содержанием и готовы приступить к исполнению.
+              Подписав документ, вы подтверждаете, что ознакомились с его содержанием и готовы
+              приступить к исполнению.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -701,7 +724,7 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
               <label className="text-sm font-medium mb-2 block">Комментарий (необязательно)</label>
               <Textarea
                 value={comment}
-                onChange={(e) => setComment(e.target.value)}
+                onChange={e => setComment(e.target.value)}
                 placeholder="Введите комментарий..."
                 rows={4}
                 className="resize-none"
@@ -712,12 +735,12 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
             <Button variant="outline" onClick={() => setSignDialogOpen(false)}>
               Отмена
             </Button>
-            <Button 
-              onClick={handleSign} 
-              disabled={actionLoading}
+            <Button
+              onClick={handleSign}
+              disabled={executorSignMutation.isPending}
               className="bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700"
             >
-              {actionLoading ? 'Подписание...' : 'Подписать'}
+              {executorSignMutation.isPending ? 'Подписание...' : 'Подписать'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -742,7 +765,7 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
                   type="checkbox"
                   id="use_custom_resolution_director"
                   checked={useCustomResolution}
-                  onChange={(e) => {
+                  onChange={e => {
                     setUseCustomResolution(e.target.checked)
                     if (e.target.checked) {
                       setResolution('')
@@ -756,7 +779,7 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
                   Ввести резолюцию вручную
                 </Label>
               </div>
-              
+
               {!useCustomResolution ? (
                 <>
                   <Label htmlFor="resolution_director">Резолюция *</Label>
@@ -765,7 +788,7 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
                       <SelectValue placeholder="Выберите резолюцию" />
                     </SelectTrigger>
                     <SelectContent>
-                      {resolutions.map((res) => (
+                      {resolutions.map(res => (
                         <SelectItem key={res.name} value={res.name}>
                           {res.resolution_name}
                         </SelectItem>
@@ -779,7 +802,7 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
                   <Textarea
                     id="resolution_text_director"
                     value={resolutionText}
-                    onChange={(e) => setResolutionText(e.target.value)}
+                    onChange={e => setResolutionText(e.target.value)}
                     placeholder="Введите текст резолюции..."
                     rows={4}
                     className="resize-none"
@@ -813,12 +836,17 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
             <Button variant="outline" onClick={() => setDirectorEditDialogOpen(false)}>
               Отмена
             </Button>
-            <Button 
-              onClick={handleDirectorEdit} 
-              disabled={actionLoading || (!useCustomResolution && !resolution) || (useCustomResolution && !resolutionText.trim()) || !executor}
+            <Button
+              onClick={handleDirectorEdit}
+              disabled={
+                updateDocumentMutation.isPending ||
+                (!useCustomResolution && !resolution) ||
+                (useCustomResolution && !resolutionText.trim()) ||
+                !executor
+              }
               className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700"
             >
-              {actionLoading ? 'Сохранение...' : 'Сохранить'}
+              {updateDocumentMutation.isPending ? 'Сохранение...' : 'Сохранить'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -842,7 +870,7 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
                   type="checkbox"
                   id="use_custom_resolution"
                   checked={useCustomResolution}
-                  onChange={(e) => {
+                  onChange={e => {
                     setUseCustomResolution(e.target.checked)
                     if (e.target.checked) {
                       setResolution('')
@@ -856,7 +884,7 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
                   Написать резолюцию вручную
                 </Label>
               </div>
-              
+
               {!useCustomResolution ? (
                 <>
                   <Label htmlFor="resolution">Резолюция *</Label>
@@ -865,7 +893,7 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
                       <SelectValue placeholder="Выберите резолюцию" />
                     </SelectTrigger>
                     <SelectContent>
-                      {resolutions.map((res) => (
+                      {resolutions.map(res => (
                         <SelectItem key={res.name} value={res.name}>
                           {res.resolution_name}
                         </SelectItem>
@@ -879,7 +907,7 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
                   <Textarea
                     id="resolution_text"
                     value={resolutionText}
-                    onChange={(e) => setResolutionText(e.target.value)}
+                    onChange={e => setResolutionText(e.target.value)}
                     placeholder="Введите текст резолюции..."
                     rows={4}
                     className="resize-none"
@@ -913,12 +941,17 @@ export function DocumentMetadata({ document, canEdit = false, onEdit, onDocument
             <Button variant="outline" onClick={() => setReceptionDialogOpen(false)}>
               Отмена
             </Button>
-            <Button 
-              onClick={handleReceptionSubmit} 
-              disabled={actionLoading || (!useCustomResolution && !resolution) || (useCustomResolution && !resolutionText.trim()) || !executor}
+            <Button
+              onClick={handleReceptionSubmit}
+              disabled={
+                receptionSubmitMutation.isPending ||
+                (!useCustomResolution && !resolution) ||
+                (useCustomResolution && !resolutionText.trim()) ||
+                !executor
+              }
               className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700"
             >
-              {actionLoading ? 'Отправка...' : 'Отправить директору'}
+              {receptionSubmitMutation.isPending ? 'Отправка...' : 'Отправить директору'}
             </Button>
           </DialogFooter>
         </DialogContent>

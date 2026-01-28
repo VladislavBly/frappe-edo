@@ -17,7 +17,11 @@
     transition: all 0.3s ease;
 
     &:hover {
-      background: linear-gradient(180deg, hsl(221.2 83.2% 53.3% / 0.6), hsl(221.2 83.2% 53.3% / 0.8));
+      background: linear-gradient(
+        180deg,
+        hsl(221.2 83.2% 53.3% / 0.6),
+        hsl(221.2 83.2% 53.3% / 0.8)
+      );
       border: 2px solid transparent;
       background-clip: padding-box;
     }

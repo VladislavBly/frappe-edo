@@ -1,0 +1,98 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:resolution_name",
+ "creation": "2026-01-27 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "resolution_name",
+  "column_break_1",
+  "is_active",
+  "section_break_1",
+  "resolution_text"
+ ],
+ "fields": [
+  {
+   "fieldname": "resolution_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Resolution Name",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "resolution_text",
+   "fieldtype": "Small Text",
+   "label": "Resolution Text",
+   "description": "Full text of the resolution that will be used in documents"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_1",
+   "fieldtype": "Section Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "is_active",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Is Active"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-01-27 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "EDO",
+ "name": "EDO Resolution",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "EDO Admin",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "read": 1,
+   "role": "EDO Reception"
+  },
+  {
+   "read": 1,
+   "role": "EDO Manager"
+  },
+  {
+   "read": 1,
+   "role": "EDO Director"
+  }
+ ],
+ "sort_field": "resolution_name",
+ "sort_order": "ASC",
+ "states": [],
+ "title_field": "resolution_name",
+ "track_changes": 1,
+ "quick_entry": 1
+}

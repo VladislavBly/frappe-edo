@@ -11,9 +11,10 @@ import styles from './Comments.module.scss'
 interface CommentsProps {
   doctype: string
   docname: string
+  refreshTrigger?: number // Optional trigger to force refresh
 }
 
-export function Comments({ doctype, docname }: CommentsProps) {
+export function Comments({ doctype, docname, refreshTrigger }: CommentsProps) {
   const { t } = useTranslation()
   const [allComments, setAllComments] = useState<Comment[]>([])
   const [displayCount, setDisplayCount] = useState(5)
@@ -29,7 +30,7 @@ export function Comments({ doctype, docname }: CommentsProps) {
   useEffect(() => {
     loadComments()
     checkAdminRole()
-  }, [doctype, docname])
+  }, [doctype, docname, refreshTrigger])
 
   const checkAdminRole = async () => {
     try {
@@ -45,8 +46,35 @@ export function Comments({ doctype, docname }: CommentsProps) {
     setLoading(true)
     try {
       const data = await api.getComments(doctype, docname)
+      // Filter out comments that contain resolution information
+      const filteredData = data.filter(comment => {
+        const content = comment.content || ''
+        // Remove HTML tags for checking
+        const tempDiv = document.createElement('div')
+        tempDiv.innerHTML = content
+        const textContent = (tempDiv.textContent || tempDiv.innerText || '').toLowerCase()
+        
+        // Filter out comments that contain resolution-related keywords
+        const resolutionKeywords = [
+          'резолюция',
+          'resolution',
+          'документ обработан в приёмной',
+          'исполнитель:',
+          'соисполнители:',
+          'executor:',
+          'co-executor:'
+        ]
+        
+        // Check if comment contains resolution keywords
+        const hasResolutionInfo = resolutionKeywords.some(keyword => 
+          textContent.includes(keyword.toLowerCase())
+        )
+        
+        return !hasResolutionInfo
+      })
+      
       // Reverse to show newest first
-      setAllComments(data.reverse())
+      setAllComments(filteredData.reverse())
     } catch (error) {
       console.error('Failed to load comments:', error)
     } finally {
@@ -119,12 +147,13 @@ export function Comments({ doctype, docname }: CommentsProps) {
   }
 
   const getInitials = (name: string) => {
+    if (!name) return 'U'
     return name
       .split(' ')
       .map(n => n[0])
       .join('')
       .toUpperCase()
-      .slice(0, 2)
+      .slice(0, 2) || 'U'
   }
 
   const handleDeleteComment = async (commentName: string) => {

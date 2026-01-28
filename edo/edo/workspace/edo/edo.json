@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\":\"edo_header\",\"type\":\"header\",\"data\":{\"text\":\"<span style=\\\"font-size: 18px;\\\"><b>Документы</b></span>\",\"col\":12}},{\"id\":\"edo_shortcut_1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"EDO Document\",\"col\":4}},{\"id\":\"edo_shortcut_2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"EDO Correspondent\",\"col\":4}},{\"id\":\"edo_shortcut_3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"EDO Document Type\",\"col\":4}},{\"id\":\"edo_header_2\",\"type\":\"header\",\"data\":{\"text\":\"<span style=\\\"font-size: 18px;\\\"><b>Справочники</b></span>\",\"col\":12}},{\"id\":\"edo_shortcut_4\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"EDO Priority\",\"col\":4}},{\"id\":\"edo_shortcut_5\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"EDO Status\",\"col\":4}},{\"id\":\"edo_shortcut_6\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"EDO Classification\",\"col\":4}},{\"id\":\"edo_shortcut_7\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"EDO Delivery Method\",\"col\":4}}]",
+ "content": "[{\"id\":\"edo_header\",\"type\":\"header\",\"data\":{\"text\":\"<span style=\\\"font-size: 18px;\\\"><b>Документы</b></span>\",\"col\":12}},{\"id\":\"edo_shortcut_1\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"EDO Document\",\"col\":4}},{\"id\":\"edo_shortcut_2\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"EDO Correspondent\",\"col\":4}},{\"id\":\"edo_shortcut_3\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"EDO Document Type\",\"col\":4}},{\"id\":\"edo_header_2\",\"type\":\"header\",\"data\":{\"text\":\"<span style=\\\"font-size: 18px;\\\"><b>Справочники</b></span>\",\"col\":12}},{\"id\":\"edo_shortcut_4\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"EDO Priority\",\"col\":4}},{\"id\":\"edo_shortcut_5\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"EDO Status\",\"col\":4}},{\"id\":\"edo_shortcut_6\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"EDO Classification\",\"col\":4}},{\"id\":\"edo_shortcut_7\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"EDO Delivery Method\",\"col\":4}},{\"id\":\"edo_shortcut_9\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"EDO Resolution\",\"col\":4}},{\"id\":\"edo_header_reception\",\"type\":\"header\",\"data\":{\"text\":\"<span style=\\\"font-size: 18px;\\\"><b>Приёмные</b></span>\",\"col\":12}},{\"id\":\"edo_shortcut_10\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"EDO Reception Office\",\"col\":4}},{\"id\":\"edo_header_3\",\"type\":\"header\",\"data\":{\"text\":\"<span style=\\\"font-size: 18px;\\\"><b>Штампы</b></span>\",\"col\":12}},{\"id\":\"edo_shortcut_8\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"EDO Stamp\",\"col\":4}}]",
  "creation": "2026-01-21 12:00:00.000000",
  "custom_blocks": [],
  "docstatus": 0,
@@ -74,6 +74,33 @@
    "link_to": "EDO Delivery Method",
    "onboard": 0,
    "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Резолюции",
+   "link_type": "DocType",
+   "link_to": "EDO Resolution",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Приёмные",
+   "link_type": "DocType",
+   "link_to": "EDO Reception Office",
+   "onboard": 0,
+   "type": "Link"
+  },
+  {
+   "hidden": 0,
+   "is_query_report": 0,
+   "label": "Штампы",
+   "link_type": "DocType",
+   "link_to": "EDO Stamp",
+   "onboard": 0,
+   "type": "Link"
   }
  ],
  "modified": "2026-01-21 13:00:00.000000",
@@ -129,6 +156,24 @@
    "doc_view": "List",
    "label": "EDO Delivery Method",
    "link_to": "EDO Delivery Method",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "label": "EDO Resolution",
+   "link_to": "EDO Resolution",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "label": "EDO Reception Office",
+   "link_to": "EDO Reception Office",
+   "type": "DocType"
+  },
+  {
+   "doc_view": "List",
+   "label": "EDO Stamp",
+   "link_to": "EDO Stamp",
    "type": "DocType"
   }
  ],

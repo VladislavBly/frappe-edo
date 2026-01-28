@@ -1,0 +1,72 @@
+[
+ {
+  "doctype": "EDO Resolution",
+  "name": "К исполнению",
+  "resolution_name": "К исполнению",
+  "resolution_text": "К исполнению",
+  "is_active": 1
+ },
+ {
+  "doctype": "EDO Resolution",
+  "name": "На рассмотрение",
+  "resolution_name": "На рассмотрение",
+  "resolution_text": "На рассмотрение",
+  "is_active": 1
+ },
+ {
+  "doctype": "EDO Resolution",
+  "name": "Для сведения",
+  "resolution_name": "Для сведения",
+  "resolution_text": "Для сведения",
+  "is_active": 1
+ },
+ {
+  "doctype": "EDO Resolution",
+  "name": "К согласованию",
+  "resolution_name": "К согласованию",
+  "resolution_text": "К согласованию",
+  "is_active": 1
+ },
+ {
+  "doctype": "EDO Resolution",
+  "name": "К контролю",
+  "resolution_name": "К контролю",
+  "resolution_text": "К контролю",
+  "is_active": 1
+ },
+ {
+  "doctype": "EDO Resolution",
+  "name": "Исполнить в срок",
+  "resolution_name": "Исполнить в срок",
+  "resolution_text": "Исполнить в срок",
+  "is_active": 1
+ },
+ {
+  "doctype": "EDO Resolution",
+  "name": "Подготовить ответ",
+  "resolution_name": "Подготовить ответ",
+  "resolution_text": "Подготовить ответ",
+  "is_active": 1
+ },
+ {
+  "doctype": "EDO Resolution",
+  "name": "Изучить и доложить",
+  "resolution_name": "Изучить и доложить",
+  "resolution_text": "Изучить и доложить",
+  "is_active": 1
+ },
+ {
+  "doctype": "EDO Resolution",
+  "name": "Проработать вопрос",
+  "resolution_name": "Проработать вопрос",
+  "resolution_text": "Проработать вопрос",
+  "is_active": 1
+ },
+ {
+  "doctype": "EDO Resolution",
+  "name": "Обеспечить контроль",
+  "resolution_name": "Обеспечить контроль",
+  "resolution_text": "Обеспечить контроль",
+  "is_active": 1
+ }
+]

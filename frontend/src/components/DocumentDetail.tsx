@@ -170,49 +170,92 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
   // Get approval progress steps
   const getApprovalSteps = () => {
     if (!document) return []
-    const steps = [
-      {
-        label: 'Создан менеджером',
-        status: 'completed',
-        date: document.creation,
-        icon: FileText,
-      },
-    ]
-
-    if (document.status === 'Новый') {
+    
+    const steps = []
+    
+    // 1. Создан менеджером - всегда completed
+    steps.push({
+      label: 'Создан менеджером',
+      status: 'completed',
+      date: document.creation,
+      icon: FileText,
+    })
+    
+    // 2. Обработан в приёмной
+    if (document.reception_user && document.reception_decision_date) {
       steps.push({
-        label: 'На согласовании у директора',
+        label: 'Обработан в приёмной',
+        status: 'completed',
+        date: document.reception_decision_date,
+        icon: Clock,
+      })
+    } else {
+      steps.push({
+        label: 'Обработка в приёмной',
         status: 'pending',
         date: undefined,
-        icon: Shield,
+        icon: Clock,
       })
-    } else if (document.director_approved) {
-      steps.push({
-        label: 'Согласован директором',
-        status: 'completed',
-        date: document.director_decision_date,
-        icon: CheckCircle2,
-      })
-    } else if (document.director_rejected) {
-      steps.push({
-        label: 'Отказан директором',
-        status: 'rejected',
-        date: document.director_decision_date,
-        icon: XCircle,
-      })
-      return steps
     }
-
-    if (document.status === 'На исполнении' || document.status === 'Выполнено') {
+    
+    // 3. Согласование директором (показываем только если документ уже обработан в приёмной)
+    // Если документ еще не обработан в приёмной, этот шаг не показываем
+    if (document.reception_user && document.reception_decision_date) {
+      if (document.director_approved) {
+        steps.push({
+          label: 'Согласован директором',
+          status: 'completed',
+          date: document.director_decision_date || undefined,
+          icon: CheckCircle2,
+        })
+      } else if (document.director_rejected) {
+        steps.push({
+          label: 'Отказан директором',
+          status: 'rejected',
+          date: document.director_decision_date || undefined,
+          icon: XCircle,
+        })
+        return steps // Если отказан, дальше шаги не показываем
+      } else {
+        steps.push({
+          label: 'На согласовании у директора',
+          status: 'pending',
+          date: undefined,
+          icon: Shield,
+        })
+      }
+    }
+    
+    // 4. Подписание исполнителями (только если есть исполнители И документ согласован директором)
+    // Показываем этот шаг только если директор уже согласовал (или отказал, но тогда мы уже вернулись)
+    const allExecutors = getAllExecutors()
+    if (allExecutors.length > 0 && (document.director_approved || document.reception_user)) {
       const progress = getSignatureProgress()
-      steps.push({
-        label: `Подписание исполнителями (${progress.signed}/${progress.total})`,
-        status: document.status === 'Выполнено' ? 'completed' : 'pending',
-        date: document.status === 'Выполнено' ? document.modified : undefined,
-        icon: Users,
-      })
+      if (document.status === 'Выполнено') {
+        steps.push({
+          label: `Подписание исполнителями (${progress.signed}/${progress.total})`,
+          status: 'completed',
+          date: document.modified,
+          icon: Users,
+        })
+      } else if (document.status === 'На исполнении') {
+        steps.push({
+          label: `Подписание исполнителями (${progress.signed}/${progress.total})`,
+          status: 'pending',
+          date: undefined,
+          icon: Users,
+        })
+      } else {
+        steps.push({
+          label: `Подписание исполнителями (0/${allExecutors.length})`,
+          status: 'pending',
+          date: undefined,
+          icon: Users,
+        })
+      }
     }
-
+    
+    // 5. Выполнено
     if (document.status === 'Выполнено') {
       steps.push({
         label: 'Выполнено',
@@ -220,8 +263,15 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
         date: document.modified,
         icon: Sparkles,
       })
+    } else {
+      steps.push({
+        label: 'Выполнено',
+        status: 'pending',
+        date: undefined,
+        icon: Sparkles,
+      })
     }
-
+    
     return steps
   }
 

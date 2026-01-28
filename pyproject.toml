@@ -9,6 +9,10 @@ readme = "README.md"
 dynamic = ["version"]
 dependencies = [
     # "frappe~=15.0.0" # Installed and managed by bench.
+    # Dependencies for PDF stamp functionality
+    "reportlab>=4.0.0",
+    "pypdf>=3.0.0,<7.0.0",  # Compatible with Frappe's pypdf==6.6.0
+    "Pillow>=10.0.0",  # For image processing
 ]
 
 [build-system]

@@ -8,13 +8,14 @@ app_license = "mit"
 # Fixtures
 # --------
 fixtures = [
-	{"dt": "Role", "filters": [["name", "in", ["EDO User", "EDO Admin", "EDO Observer", "EDO Executor", "EDO Manager", "EDO Director"]]]},
+	{"dt": "Role", "filters": [["name", "in", ["EDO User", "EDO Admin", "EDO Observer", "EDO Executor", "EDO Manager", "EDO Director", "EDO Reception"]]]},
 	"edo/fixtures/edo_priority.json",
 	"edo/fixtures/edo_document_type.json",
 	"edo/fixtures/edo_delivery_method.json",
 	"edo/fixtures/edo_classification.json",
 	"edo/fixtures/edo_status.json",
 	"edo/fixtures/edo_correspondent.json",
+	"edo/fixtures/edo_resolution.json",
 	{"dt": "Workspace", "filters": [["name", "=", "EDO"]]}
 ]
 
@@ -79,7 +80,8 @@ role_home_page = {
 	"EDO Observer": "edo_documents",
 	"EDO Executor": "edo_documents",
 	"EDO Manager": "edo_documents",
-	"EDO Director": "edo_documents"
+	"EDO Director": "edo_documents",
+	"EDO Reception": "edo_documents"
 }
 
 # Custom 404 page

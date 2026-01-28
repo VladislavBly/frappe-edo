@@ -121,7 +121,7 @@ function DocumentsPage({
           </AnimatePresence>
         </main>
 
-        <aside className="w-72 border-l bg-background shrink-0 overflow-hidden relative">
+        <aside className="w-96 border-l bg-background shrink-0 overflow-hidden relative">
           <AnimatePresence mode="wait">
             <motion.div
               key={selectedDocument?.name || 'empty'}

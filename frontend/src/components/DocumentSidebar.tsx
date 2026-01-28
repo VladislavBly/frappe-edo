@@ -65,17 +65,22 @@ export function DocumentSidebar({
   const loadFilterData = async () => {
     try {
       const [statusesData, typesData, prioritiesData, correspondentsData] = await Promise.all([
-        api.getStatuses(),
-        api.getDocumentTypes(),
-        api.getPriorities(),
-        api.getCorrespondents(),
+        api.getStatuses().catch(() => []),
+        api.getDocumentTypes().catch(() => []),
+        api.getPriorities().catch(() => []),
+        api.getCorrespondents().catch(() => []),
       ])
-      setStatuses(statusesData)
-      setDocumentTypes(typesData)
-      setPriorities(prioritiesData)
-      setCorrespondents(correspondentsData)
+      setStatuses(statusesData || [])
+      setDocumentTypes(typesData || [])
+      setPriorities(prioritiesData || [])
+      setCorrespondents(correspondentsData || [])
     } catch (err) {
       console.error('Failed to load filter data:', err)
+      // Устанавливаем пустые массивы в случае ошибки
+      setStatuses([])
+      setDocumentTypes([])
+      setPriorities([])
+      setCorrespondents([])
     }
   }
 

@@ -19,6 +19,7 @@
   "column_break_2",
   "priority",
   "status",
+  "reception_office",
   "section_break_3",
   "brief_content",
   "section_break_classification",
@@ -28,6 +29,12 @@
   "executor",
   "column_break_executors",
   "co_executors",
+  "section_break_reception",
+  "resolution",
+  "resolution_text",
+  "column_break_reception",
+  "reception_user",
+  "reception_decision_date",
   "section_break_director",
   "director_approved",
   "director_rejected",
@@ -108,8 +115,19 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Status",
-   "options": "Новый\nСогласован\nОтказан\nНа исполнении\nВыполнено\nАрхив",
-   "reqd": 1
+   "options": "Новый\nНа рассмотрении\nСогласован\nОтказан\nНа исполнении\nВыполнено\nАрхив",
+   "reqd": 1,
+   "read_only": 1,
+   "description": "Статус устанавливается автоматически при прохождении этапов обработки документа"
+  },
+  {
+   "fieldname": "reception_office",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Reception Office (Приёмная)",
+   "options": "EDO Reception Office",
+   "description": "Приёмная, в которую направляется документ"
   },
   {
    "fieldname": "brief_content",
@@ -190,6 +208,41 @@
    "fieldtype": "Table",
    "label": "Co-Executors",
    "options": "EDO Co-Executor"
+  },
+  {
+   "fieldname": "section_break_reception",
+   "fieldtype": "Section Break",
+   "label": "Reception (Приёмная)",
+   "collapsible": 1
+  },
+  {
+   "fieldname": "resolution",
+   "fieldtype": "Link",
+   "label": "Resolution (Резолюция)",
+   "options": "EDO Resolution"
+  },
+  {
+   "fieldname": "resolution_text",
+   "fieldtype": "Small Text",
+   "label": "Resolution Text (Текст резолюции)",
+   "description": "Текст резолюции, написанный вручную (если не выбрана из справочника)"
+  },
+  {
+   "fieldname": "column_break_reception",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "reception_user",
+   "fieldtype": "Link",
+   "label": "Processed by (Приёмная)",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "reception_decision_date",
+   "fieldtype": "Datetime",
+   "label": "Reception Date",
+   "read_only": 1
   },
   {
    "fieldname": "section_break_files",
@@ -286,6 +339,14 @@
    "role": "EDO User",
    "share": 1,
    "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "role": "EDO Reception",
+   "share": 1
   }
  ],
  "has_web_view": 1,

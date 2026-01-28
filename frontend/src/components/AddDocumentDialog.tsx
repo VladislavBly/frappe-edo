@@ -27,6 +27,7 @@ import {
   type EDODeliveryMethod,
   type EDOAttachment,
   type User,
+  type EDOReceptionOffice,
 } from '../lib/api'
 import { AddCorrespondentDialog } from './AddCorrespondentDialog'
 import { UserSelect, UserMultiSelect } from './ui/user-select'
@@ -63,6 +64,7 @@ export function AddDocumentDialog({
   const [briefContent, setBriefContent] = useState('')
   const [classification, setClassification] = useState('Открыто')
   const [deliveryMethod, setDeliveryMethod] = useState('')
+  const [receptionOffice, setReceptionOffice] = useState('')
   const [mainDocument, setMainDocument] = useState<File | null>(null)
   const [attachments, setAttachments] = useState<File[]>([])
   // Existing files for edit mode
@@ -77,10 +79,13 @@ export function AddDocumentDialog({
   const [priorities, setPriorities] = useState<EDOPriority[]>([])
   const [classifications, setClassifications] = useState<EDOClassification[]>([])
   const [deliveryMethods, setDeliveryMethods] = useState<EDODeliveryMethod[]>([])
+  const [receptionOffices, setReceptionOffices] = useState<EDOReceptionOffice[]>([])
   const [users, setUsers] = useState<User[]>([])
+  const [userRoles, setUserRoles] = useState<string[]>([])
 
   useEffect(() => {
     if (open) {
+      loadUserRoles()
       loadReferenceData()
       if (editDocument) {
         // Load document data for editing
@@ -95,6 +100,7 @@ export function AddDocumentDialog({
         setBriefContent(editDocument.brief_content || '')
         setClassification(editDocument.classification || '')
         setDeliveryMethod(editDocument.delivery_method || '')
+        setReceptionOffice(editDocument.reception_office || '')
         setExecutor(editDocument.executor || '')
         setCoExecutors(editDocument.co_executors?.map(c => c.user) || [])
         // Load existing files
@@ -107,14 +113,24 @@ export function AddDocumentDialog({
     }
   }, [open, editDocument])
 
+  const loadUserRoles = async () => {
+    try {
+      const user = await api.getCurrentUser()
+      setUserRoles(user.roles || [])
+    } catch (error) {
+      console.error('Failed to load user roles:', error)
+    }
+  }
+
   const loadReferenceData = async () => {
     try {
-      const [corrs, types, prios, classifs, methods, usersList] = await Promise.all([
+      const [corrs, types, prios, classifs, methods, offices, usersList] = await Promise.all([
         api.getCorrespondents(),
         api.getDocumentTypes(),
         api.getPriorities(),
         api.getClassifications(),
         api.getDeliveryMethods(),
+        api.getReceptionOffices(),
         api.getUsers(),
       ])
       setCorrespondents(corrs)
@@ -122,11 +138,21 @@ export function AddDocumentDialog({
       setPriorities(prios)
       setClassifications(classifs)
       setDeliveryMethods(methods)
+      setReceptionOffices(offices)
       setUsers(usersList)
     } catch (error) {
       console.error('Failed to load reference data:', error)
     }
   }
+
+  // Определяем, какие поля показывать для разных ролей
+  // Приёмная - только для менеджера (чтобы выбрать, куда отправить документ)
+  const canSeeReceptionOffice = userRoles.includes('EDO Manager') || 
+                                 userRoles.includes('EDO Admin')
+  
+  // Исполнители - только для приемной (чтобы назначить исполнителей)
+  const canSeeExecutors = userRoles.includes('EDO Reception') || 
+                          userRoles.includes('EDO Admin')
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -162,6 +188,12 @@ export function AddDocumentDialog({
       alert('Заполните обязательные поля')
       return
     }
+    
+    // Reception office is required for Manager (who selects which reception office to send document to)
+    if (canSeeReceptionOffice && !receptionOffice) {
+      alert('Выберите приёмную')
+      return
+    }
 
     setLoading(true)
     try {
@@ -189,7 +221,7 @@ export function AddDocumentDialog({
 
       setUploading(false)
 
-      const docData = {
+      const docData: any = {
         incoming_number: incomingNumber || undefined,
         incoming_date: incomingDate || undefined,
         outgoing_number: outgoingNumber || undefined,
@@ -203,8 +235,21 @@ export function AddDocumentDialog({
         delivery_method: deliveryMethod || undefined,
         main_document: fileUrl || undefined,
         attachments: allAttachments.length > 0 ? allAttachments : undefined,
-        executor: executor || undefined,
-        co_executors: coExecutors.length > 0 ? coExecutors.map(user => ({ user })) : undefined,
+      }
+      
+      // Reception office - только для менеджера (кто выбирает приемную)
+      if (canSeeReceptionOffice && receptionOffice) {
+        docData.reception_office = receptionOffice
+      }
+      
+      // Executors - только для приемной
+      if (canSeeExecutors) {
+        if (executor) {
+          docData.executor = executor
+        }
+        if (coExecutors.length > 0) {
+          docData.co_executors = coExecutors.map(user => ({ user }))
+        }
       }
 
       if (isEditMode && editDocument) {
@@ -242,6 +287,7 @@ export function AddDocumentDialog({
     setBriefContent('')
     setClassification('Открыто')
     setDeliveryMethod('')
+    setReceptionOffice('')
     setMainDocument(null)
     setAttachments([])
     setExecutor('')
@@ -402,38 +448,59 @@ export function AddDocumentDialog({
               </div>
             </div>
 
-            {/* Исполнители */}
-            <div className="space-y-4">
-              <h3 className="text-base font-semibold">Исполнители</h3>
+            {/* Исполнители - только для приемной */}
+            {canSeeExecutors && (
+              <div className="space-y-4">
+                <h3 className="text-base font-semibold">Исполнители</h3>
 
-              <div className="space-y-2">
-                <Label>Исполнитель</Label>
-                <UserSelect
-                  users={users}
-                  value={executor}
-                  onChange={setExecutor}
-                  placeholder="Поиск исполнителя..."
-                />
-              </div>
+                <div className="space-y-2">
+                  <Label>Исполнитель</Label>
+                  <UserSelect
+                    users={users}
+                    value={executor}
+                    onChange={setExecutor}
+                    placeholder="Поиск исполнителя..."
+                  />
+                </div>
 
-              <div className="space-y-2">
-                <Label>Соисполнители</Label>
-                <UserMultiSelect
-                  users={users}
-                  value={coExecutors}
-                  onChange={setCoExecutors}
-                  excludeUsers={executor ? [executor] : []}
-                  placeholder="Поиск соисполнителей..."
-                />
+                <div className="space-y-2">
+                  <Label>Соисполнители</Label>
+                  <UserMultiSelect
+                    users={users}
+                    value={coExecutors}
+                    onChange={setCoExecutors}
+                    excludeUsers={executor ? [executor] : []}
+                    placeholder="Поиск соисполнителей..."
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Дополнительная информация */}
             <div className="space-y-4">
               <h3 className="text-base font-semibold">Дополнительная информация</h3>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
+                {/* Приёмная - только для менеджера (чтобы выбрать, куда отправить документ) */}
+                {canSeeReceptionOffice && (
+                  <div className="space-y-2">
+                    <Label htmlFor="reception_office">Приёмная *</Label>
+                    <Select value={receptionOffice} onValueChange={setReceptionOffice}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Выберите приёмную" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {receptionOffices.map((office) => (
+                          <SelectItem key={office.name} value={office.name}>
+                            {office.reception_office_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                <div className={`space-y-2 ${canSeeReceptionOffice ? '' : 'col-span-2'}`}>
                   <Label htmlFor="delivery_method">Способ доставки</Label>
                   <Select value={deliveryMethod} onValueChange={setDeliveryMethod}>
                     <SelectTrigger>
@@ -448,7 +515,9 @@ export function AddDocumentDialog({
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
 
+              <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="classification">Гриф</Label>
                   <Select value={classification} onValueChange={setClassification}>

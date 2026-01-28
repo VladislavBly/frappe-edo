@@ -56,6 +56,7 @@ export function PdfStampEditor({ documentName, pdfUrl, onClose, onStampApplied }
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const [previewPosition, setPreviewPosition] = useState<{ x: number; y: number } | null>(null)
   const [stampImageSizes, setStampImageSizes] = useState<Record<string, { width: number; height: number }>>({})
+  const [stampPreviews, setStampPreviews] = useState<Record<string, string>>({})
 
   const pdfContainerRef = useRef<HTMLDivElement>(null)
   const stampPreviewRef = useRef<HTMLDivElement>(null)
@@ -114,12 +115,24 @@ export function PdfStampEditor({ documentName, pdfUrl, onClose, onStampApplied }
         setStamps(stampsData)
         setPdfInfo(pdfInfoData)
         
-        // Load actual image dimensions for all stamps
+        // Load actual image dimensions and previews for all stamps
         const sizes: Record<string, { width: number; height: number }> = {}
+        const previews: Record<string, string> = {}
         await Promise.all(
           stampsData.map(async (stamp) => {
             if (stamp.stamp_image) {
-              const imageUrl = getFullImageUrl(stamp.stamp_image)
+              // Загружаем превью с заполненными полями
+              try {
+                const previewUrl = await api.getStampPreview(stamp.name, documentName)
+                previews[stamp.name] = previewUrl
+              } catch (error) {
+                console.warn(`Failed to load preview for stamp ${stamp.name}:`, error)
+                // Используем оригинальное изображение как fallback
+                previews[stamp.name] = getFullImageUrl(stamp.stamp_image)
+              }
+              
+              // Загружаем размеры изображения (используем превью если есть)
+              const imageUrl = previews[stamp.name] || getFullImageUrl(stamp.stamp_image)
               try {
                 const img = new Image()
                 await new Promise((resolve, reject) => {
@@ -138,6 +151,7 @@ export function PdfStampEditor({ documentName, pdfUrl, onClose, onStampApplied }
           })
         )
         setStampImageSizes(sizes)
+        setStampPreviews(previews)
         
         if (stampsData.length > 0) {
           setSelectedStamp(stampsData[0].name)
@@ -614,7 +628,7 @@ export function PdfStampEditor({ documentName, pdfUrl, onClose, onStampApplied }
                   style={getPreviewPosition(stamp)}
                 >
                   <img
-                    src={getFullImageUrl(stamp.stamp_image)}
+                    src={stampPreviews[stamp.stamp_name] || getFullImageUrl(stamp.stamp_image)}
                     alt={stamp.stamp_title}
                     className="w-full h-full object-contain opacity-70"
                   />
@@ -645,7 +659,7 @@ export function PdfStampEditor({ documentName, pdfUrl, onClose, onStampApplied }
                         </div>
                       )
                     }
-                    const imageUrl = getFullImageUrl(stamp.stamp_image)
+                    const imageUrl = stampPreviews[stamp.name] || getFullImageUrl(stamp.stamp_image)
                     return (
                       <img
                         src={imageUrl}
@@ -712,7 +726,7 @@ export function PdfStampEditor({ documentName, pdfUrl, onClose, onStampApplied }
                         </div>
                       )
                     }
-                    const imageUrl = stamp.stamp_image ? getFullImageUrl(stamp.stamp_image) : ''
+                    const imageUrl = stamp.stamp_image ? (stampPreviews[stamp.name] || getFullImageUrl(stamp.stamp_image)) : ''
                     return imageUrl ? (
                       <>
                         <img

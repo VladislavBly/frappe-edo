@@ -55,6 +55,14 @@ export interface EDODocument {
   director_image?: string
   director_decision_date?: string
   director_comment?: string
+  // Reception fields
+  reception_office?: string
+  resolution?: string
+  resolution_name?: string
+  resolution_text?: string
+  resolution_text_from_link?: string
+  reception_user?: string
+  reception_decision_date?: string
   // Signatures
   signatures?: EDODocumentSignature[]
   // Legacy fields for compatibility
@@ -113,6 +121,50 @@ export interface EDOClassification {
 export interface EDODeliveryMethod {
   name: string
   delivery_method_name: string
+}
+
+export interface EDOResolution {
+  name: string
+  resolution_name: string
+  resolution_text?: string
+  is_active: boolean
+}
+
+export interface EDOReceptionOffice {
+  name: string
+  reception_office_name: string
+}
+
+// Stamp types
+export interface EDOStamp {
+  name: string
+  title: string
+  stamp_image: string
+}
+
+export interface PdfPageInfo {
+  width: number
+  height: number
+}
+
+export interface PdfInfo {
+  page_count: number
+  pages: PdfPageInfo[]
+}
+
+export interface StampPlacement {
+  stamp_name: string
+  page_number: number // 0-indexed
+  position: 'top-left' | 'top-center' | 'top-right' | 'center' | 'bottom-left' | 'bottom-center' | 'bottom-right' | 'custom'
+  x?: number
+  y?: number
+  scale: number
+}
+
+export interface ApplyStampsResult {
+  success: boolean
+  new_file_url: string
+  message: string
 }
 
 class FrappeAPI {
@@ -314,6 +366,17 @@ class FrappeAPI {
     return this.call('edo.edo.doctype.edo_document.edo_document.get_users_list')
   }
 
+  async getReceptionOffices(): Promise<EDOReceptionOffice[]> {
+    const response = await fetch(`${this.baseURL}/api/resource/EDO Reception Office?fields=["name","reception_office_name"]&limit_page_length=999`, {
+      headers: {
+        'X-Frappe-CSRF-Token': this.getCSRFToken(),
+      },
+    })
+    if (!response.ok) throw new Error('Failed to fetch reception offices')
+    const data = await response.json()
+    return data.data
+  }
+
   async createDocument(doc: Partial<EDODocument>): Promise<EDODocument> {
     // Use custom API method instead of direct resource access
     return this.call('edo.edo.doctype.edo_document.edo_document.create_document', doc)
@@ -372,6 +435,63 @@ class FrappeAPI {
     if (!response.ok) throw new Error('Failed to upload file')
     const data = await response.json()
     return data.message.file_url
+  }
+
+  // Stamp methods
+  async getStamps(): Promise<EDOStamp[]> {
+    return this.call('edo.edo.doctype.edo_document.edo_document.get_stamps')
+  }
+
+  async getStampPreview(stampName: string, documentName?: string): Promise<string> {
+    return this.call('edo.edo.doctype.edo_stamp.edo_stamp.get_stamp_preview', {
+      stamp_name: stampName,
+      document_name: documentName,
+    })
+  }
+
+  async getPdfInfo(documentName: string): Promise<PdfInfo> {
+    return this.call('edo.edo.doctype.edo_document.edo_document.get_pdf_info', {
+      document_name: documentName,
+    })
+  }
+
+  async applyStamps(documentName: string, stamps: StampPlacement[]): Promise<ApplyStampsResult> {
+    return this.call('edo.edo.doctype.edo_document.edo_document.apply_stamps_to_pdf', {
+      document_name: documentName,
+      stamps: JSON.stringify(stamps),
+    })
+  }
+
+  // Reception methods
+  async canReceptionSubmit(): Promise<boolean> {
+    return this.call('edo.edo.doctype.edo_document.edo_document.can_reception_submit')
+  }
+
+  async receptionSubmitToDirector(
+    documentName: string,
+    resolution?: string,
+    resolutionText?: string,
+    executor?: string,
+    coExecutors?: string[]
+  ): Promise<EDODocument> {
+    return this.call('edo.edo.doctype.edo_document.edo_document.reception_submit_to_director', {
+      name: documentName,
+      resolution,
+      resolution_text: resolutionText,
+      executor,
+      co_executors: coExecutors ? JSON.stringify(coExecutors) : undefined,
+    })
+  }
+
+  async getResolutions(): Promise<EDOResolution[]> {
+    const response = await fetch(`${this.baseURL}/api/resource/EDO Resolution?fields=["name","resolution_name","resolution_text","is_active"]&filters=[["is_active","=",1]]&limit_page_length=999`, {
+      headers: {
+        'X-Frappe-CSRF-Token': this.getCSRFToken(),
+      },
+    })
+    if (!response.ok) throw new Error('Failed to fetch resolutions')
+    const data = await response.json()
+    return data.data
   }
 
   getCSRFToken(): string {

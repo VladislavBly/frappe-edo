@@ -1,0 +1,94 @@
+{
+ "actions": [],
+ "creation": "2026-01-27 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "document_field",
+  "column_break_1",
+  "position_x",
+  "position_y",
+  "section_break_style",
+  "font_size",
+  "column_break_2",
+  "color",
+  "column_break_3",
+  "max_width"
+ ],
+ "fields": [
+  {
+   "fieldname": "document_field",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Поле документа",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "position_x",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Позиция X (пиксели)",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "position_y",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Позиция Y (пиксели)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "section_break_style",
+   "fieldtype": "Section Break",
+   "label": "Стиль текста"
+  },
+  {
+   "default": "12",
+   "fieldname": "font_size",
+   "fieldtype": "Int",
+   "label": "Размер шрифта",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "#000000",
+   "fieldname": "color",
+   "fieldtype": "Data",
+   "label": "Цвет текста (hex)",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "max_width",
+   "fieldtype": "Int",
+   "label": "Макс. ширина (0 = без ограничения)",
+   "description": "Максимальная ширина текста в пикселях. Если текст длиннее - будет перенос строки."
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-01-27 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "EDO",
+ "name": "EDO Stamp Field Mapping",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "creation",
+ "sort_order": "ASC",
+ "states": [],
+ "track_changes": 0
+}

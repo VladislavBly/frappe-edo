@@ -46,5 +46,13 @@
   "desk_access": 0,
   "is_custom": 1,
   "disabled": 0
+ },
+ {
+  "doctype": "Role",
+  "name": "EDO Reception",
+  "role_name": "EDO Reception",
+  "desk_access": 0,
+  "is_custom": 1,
+  "disabled": 0
  }
 ]

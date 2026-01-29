@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { DocumentSidebar } from '../components/DocumentSidebar'
+import { SidebarProvider, SidebarInset, SidebarTrigger } from '../components/ui/sidebar'
+import { DocumentsAppSidebar } from '../components/DocumentsAppSidebar'
 import { DocumentContent } from '../components/DocumentContent'
 import { DocumentMetadata } from '../components/DocumentMetadata'
 import { AddDocumentDialog } from '../components/AddDocumentDialog'
@@ -105,59 +106,65 @@ export function DocumentsPage({ canEdit = false }: DocumentsPageProps) {
         : null
 
   return (
-    <motion.div
-      key="documents"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.2 }}
-      className="flex-1 flex overflow-hidden"
-    >
-      <aside className="w-80 border-r bg-background shrink-0 overflow-hidden">
-        <DocumentSidebar
-          documents={documents}
-          selectedDocument={selectedDocument || null}
-          onSelectDocument={handleSelectDocument}
-          loading={loadingList}
-          error={error}
-          onDocumentsRefresh={handleDocumentsRefresh}
-          filtersForm={filtersForm}
-        />
-      </aside>
+    <SidebarProvider>
+      <DocumentsAppSidebar
+        documents={documents}
+        selectedDocument={selectedDocument || null}
+        onSelectDocument={handleSelectDocument}
+        loading={loadingList}
+        error={error}
+        onDocumentsRefresh={handleDocumentsRefresh}
+        filtersForm={filtersForm}
+      />
+      <SidebarInset>
+        <motion.div
+          key="documents"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="flex flex-1 flex-col min-h-0 overflow-hidden"
+        >
+          <header className="shrink-0 flex items-center gap-2 border-b bg-background px-4 py-2">
+            <SidebarTrigger />
+          </header>
+          <section className="flex flex-1 min-h-0 overflow-hidden">
+          <main className="flex-1 overflow-hidden relative min-w-0">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={selectedDocument?.name || 'empty'}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 20 }}
+                transition={{ duration: 0.3, ease: 'easeInOut' }}
+                className="h-full"
+              >
+                <DocumentContent document={selectedDocument || null} loading={loadingDocument} />
+              </motion.div>
+            </AnimatePresence>
+          </main>
 
-      <main className="flex-1 overflow-hidden relative">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={selectedDocument?.name || 'empty'}
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            transition={{ duration: 0.3, ease: 'easeInOut' }}
-            className="h-full"
-          >
-            <DocumentContent document={selectedDocument || null} loading={loadingDocument} />
-          </motion.div>
-        </AnimatePresence>
-      </main>
-
-      <aside className="w-96 border-l bg-background shrink-0 overflow-hidden relative">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={selectedDocument?.name || 'empty'}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3, ease: 'easeInOut' }}
-            className="h-full"
-          >
-            <DocumentMetadata
-              document={selectedDocument || null}
-              canEdit={canEdit}
-              onEdit={handleEditDocument}
-            />
-          </motion.div>
-        </AnimatePresence>
-      </aside>
+          <aside className="w-96 border-l bg-background shrink-0 overflow-hidden relative">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={selectedDocument?.name || 'empty'}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3, ease: 'easeInOut' }}
+                className="h-full"
+              >
+                <DocumentMetadata
+                  document={selectedDocument || null}
+                  canEdit={canEdit}
+                  onEdit={handleEditDocument}
+                />
+              </motion.div>
+            </AnimatePresence>
+          </aside>
+          </section>
+        </motion.div>
+      </SidebarInset>
 
       {/* Edit Document Dialog */}
       <AddDocumentDialog
@@ -166,6 +173,6 @@ export function DocumentsPage({ canEdit = false }: DocumentsPageProps) {
         editDocument={selectedDocument || null}
         onDocumentUpdated={handleDocumentUpdated}
       />
-    </motion.div>
+    </SidebarProvider>
   )
 }

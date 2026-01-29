@@ -70,9 +70,10 @@ def setup_admin_permissions():
 	# Admin gets all permissions
 	# Manager gets all permissions except delete
 	# Other roles get read permission
+	# Note: submit/cancel/amend only apply to submittable doctypes
 	role_permissions = {
-		"EDO Admin": ["read", "write", "delete", "submit", "cancel", "amend"],
-		"EDO Manager": ["read", "write", "submit", "cancel", "amend"],
+		"EDO Admin": ["read", "write", "delete"],
+		"EDO Manager": ["read", "write"],
 		"EDO User": ["read"],
 		"EDO Observer": ["read"],
 		"EDO Executor": ["read"],
@@ -106,9 +107,6 @@ def setup_admin_permissions():
 					"read": 1 if "read" in permissions else 0,
 					"write": 1 if "write" in permissions else 0,
 					"delete": 1 if "delete" in permissions else 0,
-					"submit": 1 if "submit" in permissions else 0,
-					"cancel": 1 if "cancel" in permissions else 0,
-					"amend": 1 if "amend" in permissions else 0,
 					"create": 1 if "write" in permissions else 0,
 					"email": 1 if "read" in permissions else 0,
 					"export": 1 if "read" in permissions else 0,
@@ -133,16 +131,7 @@ def setup_admin_permissions():
 				if "delete" in permissions and not existing_perm.delete:
 					existing_perm.delete = 1
 					updated = True
-				if "submit" in permissions and not existing_perm.submit:
-					existing_perm.submit = 1
-					updated = True
-				if "cancel" in permissions and not existing_perm.cancel:
-					existing_perm.cancel = 1
-					updated = True
-				if "amend" in permissions and not existing_perm.amend:
-					existing_perm.amend = 1
-					updated = True
-				
+
 				if updated:
 					has_changes = True
 					print(f"Updated permissions for {role} on {doctype}")

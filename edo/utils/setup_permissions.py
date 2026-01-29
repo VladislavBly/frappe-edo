@@ -2,11 +2,47 @@
 Setup permissions for EDO roles
 Run this script after installing the app to set up permissions for EDO Admin role
 """
+import os
+import subprocess
+import sys
+
 import frappe
+
+
+def build_edo_portal():
+	"""Собрать React-портал (frontend) в edo/public/dist при установке приложения."""
+	app_path = frappe.get_app_path("edo")
+	frontend_path = os.path.join(app_path, "frontend")
+	manifest_path = os.path.join(app_path, "public", "dist", ".vite", "manifest.json")
+	if os.path.exists(manifest_path):
+		# Уже собран (например, dist в репозитории)
+		return
+	if not os.path.isdir(frontend_path):
+		print("EDO: frontend/ не найден, сборка портала пропущена")
+		return
+	for cmd, cwd in [
+		(["npm", "install"], frontend_path),
+		(["npm", "run", "build"], frontend_path),
+	]:
+		try:
+			subprocess.run(
+				cmd,
+				cwd=cwd,
+				check=True,
+				shell=(sys.platform == "win32"),
+				timeout=300,
+			)
+		except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired) as e:
+			print(f"EDO: сборка портала не выполнена ({e}). Запустите вручную: cd {frontend_path} && npm install && npm run build")
+			return
+	print("EDO: портал собран (public/dist)")
+
 
 def setup_admin_permissions():
 	"""Setup permissions for all EDO roles"""
-	
+	# Собрать React-портал, чтобы /documents работал без ручной сборки
+	build_edo_portal()
+
 	# All EDO roles
 	edo_roles = ["EDO User", "EDO Admin", "EDO Observer", "EDO Executor", "EDO Manager", "EDO Director"]
 	

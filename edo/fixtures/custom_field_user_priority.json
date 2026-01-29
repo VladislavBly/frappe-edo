@@ -1,0 +1,14 @@
+[
+  {
+    "doctype": "Custom Field",
+    "name": "User-edo_fiska_priority",
+    "dt": "User",
+    "fieldname": "edo_fiska_priority",
+    "fieldtype": "Int",
+    "label": "Priority (Fiska)",
+    "default": "0",
+    "in_list_view": 1,
+    "module": "EDO",
+    "description": "Приоритет в списке на фишке (меньше — выше в списке)"
+  }
+]

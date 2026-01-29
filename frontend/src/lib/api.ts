@@ -577,6 +577,33 @@ class FrappeAPI {
     })
   }
 
+  /** Получить PDF фишки (без QR) для подписания директором по схеме LexDoc Fiska. resolution/resolution_text из запроса уходят на сервис. */
+  async getFiskaPdf(
+    name: string,
+    opts?: { resolution?: string; resolution_text?: string }
+  ): Promise<{ success: boolean; pdf_base64: string; document_number?: string; issue_date?: string }> {
+    return this.call('edo.edo.doctype.edo_document.edo_document.get_fiska_pdf', {
+      name,
+      ...(opts?.resolution != null && { resolution: opts.resolution }),
+      ...(opts?.resolution_text != null && { resolution_text: opts.resolution_text }),
+    })
+  }
+
+  /** Согласование директором с подписанной фишкой (signed PDF + PKCS7) */
+  async directorApproveWithFiska(
+    name: string,
+    comment: string | undefined,
+    signedPdfBase64: string,
+    pkcs7Base64: string
+  ): Promise<EDODocument & { verification_url?: string }> {
+    return this.call('edo.edo.doctype.edo_document.edo_document.director_approve_with_fiska', {
+      name,
+      comment,
+      signed_pdf_base64: signedPdfBase64,
+      pkcs7_base64: pkcs7Base64,
+    })
+  }
+
   async directorRejectDocument(name: string, comment?: string): Promise<EDODocument> {
     return this.call('edo.edo.doctype.edo_document.edo_document.director_reject_document', {
       name,

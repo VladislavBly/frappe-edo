@@ -75,13 +75,33 @@ export function useCreateDocument() {
   })
 }
 
-// Hook for director approval
+// Hook for director approval (старая схема — без фишки; оставлен для совместимости)
 export function useDirectorApproveDocument() {
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: async (data: { name: string; comment?: string; signature?: string }) => {
       return api.directorApproveDocument(data.name, data.comment, data.signature)
+    },
+    onSuccess: updatedDoc => {
+      queryClient.invalidateQueries({ queryKey: documentKeys.lists() })
+      queryClient.setQueryData(documentKeys.detail(updatedDoc.name), updatedDoc)
+    },
+  })
+}
+
+// Hook for director approval по схеме фишки (get_fiska_pdf → E-IMZO подпись PDF → director_approve_with_fiska)
+export function useDirectorApproveWithFiska() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (data: {
+      name: string
+      comment?: string
+      signedPdfBase64: string
+      pkcs7Base64: string
+    }) => {
+      return api.directorApproveWithFiska(data.name, data.comment, data.signedPdfBase64, data.pkcs7Base64)
     },
     onSuccess: updatedDoc => {
       queryClient.invalidateQueries({ queryKey: documentKeys.lists() })

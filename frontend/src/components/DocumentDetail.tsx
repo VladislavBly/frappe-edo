@@ -19,6 +19,8 @@ import { Badge } from './ui/badge'
 import { Button } from './ui/button'
 import { api } from '../lib/api'
 import type { EDODocument } from '../api/documents/types'
+import { EImzoKeySelectDialog } from './EImzoKeySelectDialog'
+import { signPdfDocument, type Cert } from '../vendors/e-imzo-func'
 import { Progress } from './ui/progress'
 import { Textarea } from './ui/textarea'
 import {
@@ -47,8 +49,12 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
   const [approveDialogOpen, setApproveDialogOpen] = useState(false)
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
   const [signDialogOpen, setSignDialogOpen] = useState(false)
+  const [eImzoKeySelectOpen, setEImzoKeySelectOpen] = useState(false)
+  const [selectedEImzoKey, setSelectedEImzoKey] = useState<Cert | null>(null)
+  const [fiskaPdfBase64, setFiskaPdfBase64] = useState<string | null>(null)
   const [comment, setComment] = useState('')
   const [actionLoading, setActionLoading] = useState(false)
+  const [signing, setSigning] = useState(false)
 
   useEffect(() => {
     loadDocument()
@@ -99,19 +105,48 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
     }
   }
 
-  const handleApprove = async () => {
+  // MD: 1) первый эндпоинт — получаем PDF; 2) подписываем PDF (E-IMZO); 3) второй эндпоинт — подписанный PDF + PKCS7; 4) получаем PDF с QR; 5) вставляем во вложения
+  const handleApproveClick = () => {
+    setEImzoKeySelectOpen(true)
+  }
+
+  const handleEImzoKeySelected = async (key: Cert) => {
     if (!document) return
+    setSelectedEImzoKey(key)
     try {
-      setActionLoading(true)
-      const updated = await api.directorApproveDocument(document.name, comment)
+      // Шаг 1 по MD: первый эндпоинт — получаем PDF (без QR); резолюция из документа уходит на сервис
+      const result = await api.getFiskaPdf(document.name, {
+        ...(document.resolution && { resolution: document.resolution }),
+        ...(document.resolution_text && { resolution_text: document.resolution_text }),
+      })
+      if (!result?.pdf_base64) throw new Error('Не получен PDF фишки')
+      setFiskaPdfBase64(result.pdf_base64)
+      setApproveDialogOpen(true)
+    } catch (err) {
+      console.error('getFiskaPdf error:', err)
+      alert(err instanceof Error ? err.message : 'Ошибка при получении фишки')
+      setEImzoKeySelectOpen(false)
+    }
+  }
+
+  const handleApprove = async () => {
+    if (!document || !selectedEImzoKey || !fiskaPdfBase64) return
+    setSigning(true)
+    try {
+      // Шаг 2: подписываем PDF. Шаги 3–5: второй эндпоинт (подписанный PDF + PKCS7) → PDF с QR → бэкенд во вложения
+      const pkcs7 = await signPdfDocument(selectedEImzoKey, fiskaPdfBase64)
+      const updated = await api.directorApproveWithFiska(document.name, comment, fiskaPdfBase64, pkcs7)
       setDocument(updated)
       setApproveDialogOpen(false)
+      setEImzoKeySelectOpen(false)
       setComment('')
+      setSelectedEImzoKey(null)
+      setFiskaPdfBase64(null)
       await checkPermissions()
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Ошибка при согласовании')
     } finally {
-      setActionLoading(false)
+      setSigning(false)
     }
   }
 
@@ -477,7 +512,7 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
           (document.status === 'Новый' || document.status_name === 'Новый') && (
             <>
               <Button
-                onClick={() => setApproveDialogOpen(true)}
+                onClick={handleApproveClick}
                 className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl transition-all"
                 size="lg"
               >
@@ -925,14 +960,21 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
             </Button>
             <Button
               onClick={handleApprove}
-              disabled={actionLoading}
+              disabled={actionLoading || signing}
               className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
             >
-              {actionLoading ? t('documentMetadata.approving') : t('documentMetadata.approve')}
+              {signing ? t('documentMetadata.signing') : actionLoading ? t('documentMetadata.approving') : t('documentMetadata.approve')}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <EImzoKeySelectDialog
+        open={eImzoKeySelectOpen}
+        onOpenChange={setEImzoKeySelectOpen}
+        onKeySelected={handleEImzoKeySelected}
+        useFiskaFlow={true}
+      />
 
       <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">

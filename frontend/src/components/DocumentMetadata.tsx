@@ -26,7 +26,7 @@ import { Label } from './ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select'
 import { UserSelect, UserMultiSelect } from './ui/user-select'
 import {
-  useDirectorApproveDocument,
+  useDirectorApproveWithFiska,
   useDirectorRejectDocument,
   useExecutorSignDocument,
   useReceptionSubmitToDirector,
@@ -36,7 +36,7 @@ import { useResolutions } from '../api/references/api'
 import { useUsers, useCurrentUser } from '../api/users/api'
 import type { EDODocument } from '../api/documents/types'
 import { EImzoKeySelectDialog } from './EImzoKeySelectDialog'
-import { signDocument, type Cert } from '../vendors/e-imzo-func'
+import { signPdfDocument, type Cert } from '../vendors/e-imzo-func'
 import { api } from '../lib/api'
 
 interface DocumentMetadataProps {
@@ -66,8 +66,9 @@ export function DocumentMetadata({
   const isCoExecutor = document?.co_executors?.some((ce: any) => ce.user === currentUser?.email) ?? false
   const canExecutorSign = (isExecutor || isCoExecutor) && (currentUser?.roles?.includes('EDO Executor') ?? false)
 
-  // Use hooks for mutations
-  const directorApproveMutation = useDirectorApproveDocument()
+  // Use hooks for mutations (схема фишки: get_fiska_pdf → E-IMZO подпись PDF → director_approve_with_fiska)
+  const directorApproveWithFiskaMutation = useDirectorApproveWithFiska()
+  // const directorApproveMutation = useDirectorApproveDocument() // старая схема — закомментирована
   const directorRejectMutation = useDirectorRejectDocument()
   const executorSignMutation = useExecutorSignDocument()
   const receptionSubmitMutation = useReceptionSubmitToDirector()
@@ -83,6 +84,7 @@ export function DocumentMetadata({
   const [directorEditDialogOpen, setDirectorEditDialogOpen] = useState(false)
   const [eImzoKeySelectOpen, setEImzoKeySelectOpen] = useState(false)
   const [selectedEImzoKey, setSelectedEImzoKey] = useState<Cert | null>(null)
+  const [fiskaPdfBase64, setFiskaPdfBase64] = useState<string | null>(null)
   const [signing, setSigning] = useState(false)
   const [comment, setComment] = useState('')
 
@@ -101,42 +103,51 @@ export function DocumentMetadata({
     setEImzoKeySelectOpen(true)
   }
 
-  const handleEImzoKeySelected = (key: any) => {
+  const handleEImzoKeySelected = async (key: any) => {
+    if (!document) return
     setSelectedEImzoKey(key)
-    // После выбора ключа открываем диалог согласования
-    setApproveDialogOpen(true)
+    try {
+      // MD шаг 1: первый эндпоинт — получаем PDF (без QR); резолюция из документа уходит на сервис
+      const result = await api.getFiskaPdf(document.name, {
+        ...(document.resolution && { resolution: document.resolution }),
+        ...(document.resolution_text && { resolution_text: document.resolution_text }),
+      })
+      if (!result?.pdf_base64) throw new Error('Не получен PDF фишки')
+      setFiskaPdfBase64(result.pdf_base64)
+      setApproveDialogOpen(true)
+    } catch (err) {
+      console.error('getFiskaPdf error:', err)
+      alert(err instanceof Error ? err.message : t('documentMetadata.errorApproval'))
+      setEImzoKeySelectOpen(false)
+    }
   }
 
   const handleApprove = async () => {
-    if (!document || !selectedEImzoKey) return
+    if (!document || !selectedEImzoKey || !fiskaPdfBase64) return
 
     setSigning(true)
     try {
-      // 1. Подписываем документ через E-IMZO
-      const dataToSign = {
-        document_name: document.name,
-        document_title: document.title,
-        action: 'approve',
-        timestamp: new Date().toISOString(),
-        comment: comment || undefined,
-      }
-
-      const pkcs7 = await signDocument(selectedEImzoKey, dataToSign)
-      console.log('Document signed, PKCS7 length:', pkcs7.length)
-
-      // 2. Отправляем на сервер с подписью
-      const updated = await directorApproveMutation.mutateAsync({
+      // MD шаг 2: подписываем PDF (E-IMZO). Шаги 3–5: отправляем подписанный PDF + PKCS7 на второй эндпоинт → получаем PDF с QR → бэкенд вставляет во вложения
+      const pkcs7 = await signPdfDocument(selectedEImzoKey, fiskaPdfBase64)
+      const updated = await directorApproveWithFiskaMutation.mutateAsync({
         name: document.name,
         comment,
-        signature: pkcs7, // Передаем подпись на бэкенд
+        signedPdfBase64: fiskaPdfBase64,
+        pkcs7Base64: pkcs7,
       })
 
       setApproveDialogOpen(false)
       setEImzoKeySelectOpen(false)
       setComment('')
       setSelectedEImzoKey(null)
+      setFiskaPdfBase64(null)
       if (onDocumentUpdate) {
         onDocumentUpdate(updated)
+      }
+      const verificationUrl = (updated as { verification_url?: string })?.verification_url
+      if (verificationUrl) {
+        // Можно показать ссылку на верификацию (toast или отдельно)
+        console.log('Verification URL:', verificationUrl)
       }
     } catch (err) {
       console.error('Signing error:', err)
@@ -145,6 +156,37 @@ export function DocumentMetadata({
       setSigning(false)
     }
   }
+
+  // --- Закомментированная старая схема (подпись JSON и вызов director_approve_document) ---
+  // const handleApproveOld = async () => {
+  //   if (!document || !selectedEImzoKey) return
+  //   setSigning(true)
+  //   try {
+  //     const dataToSign = {
+  //       document_name: document.name,
+  //       document_title: document.title,
+  //       action: 'approve',
+  //       timestamp: new Date().toISOString(),
+  //       comment: comment || undefined,
+  //     }
+  //     const pkcs7 = await signDocument(selectedEImzoKey, dataToSign)
+  //     const updated = await directorApproveMutation.mutateAsync({
+  //       name: document.name,
+  //       comment,
+  //       signature: pkcs7,
+  //     })
+  //     setApproveDialogOpen(false)
+  //     setEImzoKeySelectOpen(false)
+  //     setComment('')
+  //     setSelectedEImzoKey(null)
+  //     if (onDocumentUpdate) onDocumentUpdate(updated)
+  //   } catch (err) {
+  //     console.error('Signing error:', err)
+  //     alert(err instanceof Error ? err.message : t('documentMetadata.errorApproval'))
+  //   } finally {
+  //     setSigning(false)
+  //   }
+  // }
 
   const handleReject = async () => {
     if (!document) return
@@ -701,10 +743,10 @@ export function DocumentMetadata({
             </Button>
             <Button
               onClick={handleApprove}
-              disabled={directorApproveMutation.isPending || signing}
+              disabled={directorApproveWithFiskaMutation.isPending || signing}
               className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
             >
-              {signing ? t('documentMetadata.signing') : directorApproveMutation.isPending ? t('documentMetadata.approving') : t('documentMetadata.approve')}
+              {signing ? t('documentMetadata.signing') : directorApproveWithFiskaMutation.isPending ? t('documentMetadata.approving') : t('documentMetadata.approve')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1003,6 +1045,7 @@ export function DocumentMetadata({
         open={eImzoKeySelectOpen}
         onOpenChange={setEImzoKeySelectOpen}
         onKeySelected={handleEImzoKeySelected}
+        useFiskaFlow={true}
         documentName={document?.name}
         onDocumentSigned={() => {
           // Обновляем документ после подписания

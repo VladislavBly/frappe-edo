@@ -357,3 +357,16 @@ export const signDocument = async (cert: Cert, document: string | object): Promi
 
   return pkcs7;
 };
+
+/**
+ * Подписать PDF (бинарные данные в Base64) с помощью E-IMZO.
+ * Используется для подписания фишки при согласовании директором (схема LexDoc Fiska).
+ * @param cert - сертификат (из getAllCertificatesPfxParsed)
+ * @param pdfBase64 - содержимое PDF в Base64
+ * @returns PKCS7 подпись в Base64
+ */
+export const signPdfDocument = async (cert: Cert, pdfBase64: string): Promise<string> => {
+  const keyId = await EIMZOAPI.loadKey(cert);
+  const pkcs7 = await EIMZOAPI.createPkcs7(keyId, pdfBase64, 'no');
+  return pkcs7;
+};

@@ -712,48 +712,253 @@ def can_edit_document(document_name=None):
 
 
 @frappe.whitelist()
-def director_approve_document(name, comment=None):
-	"""Director approves a document"""
-	user = frappe.session.user
+def director_approve_document(name, comment=None, signature=None):
+	"""
+	Director approves a document.
+	Текущая схема: согласование через фишку (get_fiska_pdf → E-IMZO подпись PDF → director_approve_with_fiska).
+	Старая схема (без фишки) закомментирована ниже.
+	"""
+	# --- Закомментированная старая схема (просто выставить флаг без подписи фишки) ---
+	# user = frappe.session.user
+	# if not user or user == "Guest":
+	# 	frappe.throw("Not authorized", frappe.PermissionError)
+	# user_roles = frappe.get_roles(user)
+	# if "EDO Director" not in user_roles and "EDO Admin" not in user_roles:
+	# 	frappe.throw("Only Director can approve documents", frappe.PermissionError)
+	# doc = frappe.get_doc("EDO Document", name)
+	# if doc.status != "На рассмотрении":
+	# 	frappe.throw("Document must be in 'На рассмотрении' status to be approved (Reception must process it first)", frappe.ValidationError)
+	# if "EDO Admin" not in user_roles:
+	# 	if not doc.director_user or doc.director_user != user:
+	# 		frappe.throw("You can only approve documents assigned to your reception office", frappe.PermissionError)
+	# doc.director_approved = 1
+	# doc.director_rejected = 0
+	# doc.director_decision_date = frappe.utils.now()
+	# doc.director_comment = comment or ""
+	# if doc.executor:
+	# 	doc.status = "На исполнении"
+	# else:
+	# 	doc.status = "Согласован"
+	# doc.save(ignore_permissions=True)
+	# return doc.as_dict()
+	frappe.throw(
+		"Согласование выполняется через фишку: get_fiska_pdf → подпись E-IMZO → director_approve_with_fiska.",
+		frappe.ValidationError,
+	)
 
+
+# --- LexDoc Fiska API (oddo.tcld.uz) — по fiska_integration.md два эндпоинта: ---
+# 1) Обращаемся на ПЕРВЫЙ эндпоинт (generate_fiska_pdf) → получаем PDF (без QR).
+# 2) Подписываем этот PDF (E-IMZO на клиенте).
+# 3) Отправляем подписанный PDF + PKCS7 на ВТОРОЙ эндпоинт (process_signed_fiska).
+# 4) Получаем PDF с QR-кодом.
+# 5) Вставляем этот PDF во вложения (attachments). main_document не меняем.
+# Заголовок во всех запросах: X-Api-Key.
+LEXDOC_FISKA_API_KEY = "fk_3662b4f84723836346270d049aa2ae2c53065d391b5abdb7"
+
+def _check_director_can_approve(doc, user):
+	"""Проверки прав директора для согласования (общие для director_approve и fiska flow)."""
 	if not user or user == "Guest":
 		frappe.throw("Not authorized", frappe.PermissionError)
-
-	# Check if user is Director or Admin
 	user_roles = frappe.get_roles(user)
 	if "EDO Director" not in user_roles and "EDO Admin" not in user_roles:
 		frappe.throw("Only Director can approve documents", frappe.PermissionError)
-
-	# Get document
-	doc = frappe.get_doc("EDO Document", name)
-
-	# Check if document is in "На рассмотрении" status (after reception processed it)
 	if doc.status != "На рассмотрении":
 		frappe.throw("Document must be in 'На рассмотрении' status to be approved (Reception must process it first)", frappe.ValidationError)
-	
-	# Check if this director is assigned to this document
-	# Admin can approve any document, but Director can only approve documents assigned to them
 	if "EDO Admin" not in user_roles:
 		if not doc.director_user or doc.director_user != user:
 			frappe.throw("You can only approve documents assigned to your reception office", frappe.PermissionError)
 
-	# Update document
-	doc.director_approved = 1
-	doc.director_rejected = 0
-	# director_user is already set by reception_submit_to_director, don't override it
-	doc.director_decision_date = frappe.utils.now()
-	doc.director_comment = comment or ""
-	
-	# If document has executors, change status to "На исполнении"
-	# Otherwise change to "Согласован"
+
+@frappe.whitelist()
+def get_fiska_pdf(name, resolution=None, resolution_text=None):
+	"""
+	Шаг 1 по MD: первый эндпоинт — получаем PDF фишки (без QR).
+
+	Параметры из REST: name; опционально resolution, resolution_text (передаются на сервис).
+	Что шлём на сервис: executor, co_executors, login, head, verification_text, execution_term, issue_date, document_number, resolution, resolution_text.
+
+	Ответ: { "success": True, "pdf_base64": "...", "document_number": "...", "issue_date": "..." }
+	"""
+	import requests
+	import traceback
+
+	user = frappe.session.user
+	doc = frappe.get_doc("EDO Document", name)
+	_check_director_can_approve(doc, user)
+
+	api_key = LEXDOC_FISKA_API_KEY
+	url = "https://oddo.tcld.uz/api/method/lexdoc.lexdoc.api.generate_fiska_pdf"
+
+	# Исполнитель (первый) — ФИО
+	executor_name = ""
 	if doc.executor:
-		doc.status = "На исполнении"
-	else:
-		doc.status = "Согласован"
-	
-	doc.save(ignore_permissions=True)
-	
-	return doc.as_dict()
+		executor_name = frappe.db.get_value("User", doc.executor, "full_name") or doc.executor
+
+	# Соисполнители: только из таблицы co_executors; приоритет из User.edo_fiska_priority (меньше — выше в списке на фишке)
+	co_executors = []
+	if doc.co_executors:
+		for i, row in enumerate(doc.co_executors):
+			u = getattr(row, "user", None)
+			if not u:
+				continue
+			if u == doc.executor:
+				continue
+			nm = frappe.db.get_value("User", u, "full_name") or u
+			prio = frappe.db.get_value("User", u, "edo_fiska_priority")
+			if prio is None:
+				prio = i
+			co_executors.append({"name": nm, "priority": int(prio)})
+		co_executors.sort(key=lambda x: x["priority"])
+
+	# Руководитель (внизу справа от QR)
+	head_name = ""
+	if doc.director_user:
+		head_name = frappe.db.get_value("User", doc.director_user, "full_name") or doc.director_user
+
+	# Текст верификации (ERI, Hujjat kodi)
+	verification_text = f"edoc.uztelecom.uz tizimi orqali ERI bilan tasdiqlangan, Hujjat kodi: {doc.name}"
+	# Резолюция: из REST (resolution, resolution_text) или с документа (EDO Resolution / resolution_text)
+	resolution_text_val = ""
+	resolution_name_val = ""
+	if resolution is not None and str(resolution).strip():
+		resolution_name_val = str(resolution).strip()
+	if resolution_text is not None and str(resolution_text).strip():
+		resolution_text_val = str(resolution_text).strip()
+	if not resolution_name_val or not resolution_text_val:
+		if doc.resolution:
+			resolution_info = frappe.db.get_value("EDO Resolution", doc.resolution, ["resolution_text", "resolution_name"], as_dict=True)
+			if resolution_info:
+				if not resolution_text_val:
+					resolution_text_val = (resolution_info.get("resolution_text") or "").strip()
+				if not resolution_name_val:
+					resolution_name_val = (resolution_info.get("resolution_name") or doc.resolution or "").strip()
+		if not resolution_text_val and getattr(doc, "resolution_text", None):
+			resolution_text_val = (doc.resolution_text or "").strip()
+	# Срок исполнения, дата выпуска, номер документа (issue_date — строка YYYY-MM-DD)
+	execution_term = "10 kun"
+	_creation = doc.creation or frappe.utils.now()
+	issue_date = _creation.strftime("%Y-%m-%d") if hasattr(_creation, "strftime") else str(_creation)[:10]
+	document_number = doc.incoming_number or doc.name
+
+	# Тело: шлём resolution (название) и resolution_text (текст) на сервис.
+	resolution_text_value = resolution_text_val or "—"
+	resolution_final = resolution_name_val or resolution_text_value
+	body = {
+		"executor": executor_name or "—",
+		"co_executors": co_executors if co_executors else [{"name": "—", "priority": 0}],
+		"login": "aripov",
+		"head": head_name or "—",
+		"verification_text": verification_text,
+		"execution_term": execution_term,
+		"issue_date": issue_date,
+		"document_number": document_number,
+		"resolution": resolution_final,
+		"resolution_text": resolution_text_value,
+	}
+	headers = {"Content-Type": "application/json", "X-Api-Key": api_key}
+
+	try:
+		resp = requests.post(url, json=body, headers=headers, timeout=60)
+		if resp.status_code != 200:
+			msg = (resp.text or resp.reason)[:500]
+			frappe.log_error(f"LexDoc generate_fiska_pdf error {resp.status_code}: {msg}", "get_fiska_pdf_error")
+			frappe.throw(f"Ошибка получения фишки: {msg}", frappe.ValidationError)
+		data = resp.json()
+		# Frappe-стиль: message может быть объектом
+		payload = data.get("message") if isinstance(data.get("message"), dict) else data
+		if not payload.get("success") or not payload.get("pdf_base64"):
+			frappe.throw("Сервис не вернул PDF фишки", frappe.ValidationError)
+		return {
+			"success": True,
+			"pdf_base64": payload["pdf_base64"],
+			"document_number": payload.get("document_number", document_number),
+			"issue_date": payload.get("issue_date", issue_date),
+		}
+	except requests.RequestException as e:
+		frappe.log_error(f"get_fiska_pdf request error: {str(e)}\n{traceback.format_exc()}", "get_fiska_pdf_error")
+		frappe.throw(f"Ошибка запроса к сервису фишки: {str(e)[:200]}", frappe.ValidationError)
+
+
+@frappe.whitelist()
+def director_approve_with_fiska(name, comment=None, signed_pdf_base64=None, pkcs7_base64=None):
+	"""
+	Шаги 3–5 по MD: отправляем подписанный PDF + PKCS7 на второй эндпоинт,
+	получаем PDF с QR — вставляем во вложения. main_document не трогаем.
+	POST https://oddo.tcld.uz/api/method/lexdoc.lexdoc.api.process_signed_fiska (X-Api-Key).
+	Тело: pdf_base64 (подписанный PDF из шага 1), pkcs7_base64.
+	Ответ: ok, pdf_base64 (PDF с QR) — этот PDF только добавляем в doc.attachments.
+	"""
+	import requests
+	import base64
+	import os
+	import traceback
+
+	user = frappe.session.user
+	doc = frappe.get_doc("EDO Document", name)
+	_check_director_can_approve(doc, user)
+
+	if not signed_pdf_base64 or not pkcs7_base64:
+		frappe.throw("Требуются подписанный PDF (signed_pdf_base64) и подпись PKCS7 (pkcs7_base64)", frappe.ValidationError)
+
+	api_key = LEXDOC_FISKA_API_KEY
+	url = "https://oddo.tcld.uz/api/method/lexdoc.lexdoc.api.process_signed_fiska"
+	headers = {"Content-Type": "application/json", "X-Api-Key": api_key}
+	body = {"pdf_base64": signed_pdf_base64, "pkcs7_base64": pkcs7_base64}
+
+	try:
+		resp = requests.post(url, json=body, headers=headers, timeout=60)
+		if resp.status_code != 200:
+			msg = (resp.text or resp.reason)[:500]
+			frappe.log_error(f"LexDoc process_signed_fiska error {resp.status_code}: {msg}", "director_approve_fiska_error")
+			frappe.throw(f"Ошибка проверки подписи/фишки: {msg}", frappe.ValidationError)
+		data = resp.json()
+		payload = data.get("message") if isinstance(data.get("message"), dict) else data
+		if not payload.get("ok"):
+			frappe.throw(payload.get("message") or "Ошибка обработки подписанной фишки", frappe.ValidationError)
+		pdf_with_qr = payload.get("pdf_base64")
+		verification_url = payload.get("verification_url") or ""
+		# Шаг 5 по MD: полученный PDF с QR вставляем во вложения (main_document не меняем)
+		if pdf_with_qr:
+			try:
+				pdf_bytes = base64.b64decode(pdf_with_qr)
+				import re
+				clean_name = re.sub(r"[^\w\-]", "_", name)[:50]
+				fiska_filename = f"{clean_name}_fiska_signed.pdf"
+				fiska_file = frappe.get_doc({
+					"doctype": "File",
+					"file_name": fiska_filename,
+					"content": pdf_bytes,
+					"attached_to_doctype": "EDO Document",
+					"attached_to_name": name,
+					"is_private": 0,
+				})
+				fiska_file.save(ignore_permissions=True)
+				doc.append("attachments", {
+					"attachment": fiska_file.file_url,
+					"file_name": fiska_filename,
+				})
+			except Exception as e:
+				frappe.log_error(
+					f"Failed to save fiska PDF to attachments: {str(e)}\n{traceback.format_exc()}",
+					"director_approve_fiska_attach_error",
+				)
+		# Обновляем только флаги/статус; main_document не меняем
+		doc.director_approved = 1
+		doc.director_rejected = 0
+		doc.director_decision_date = frappe.utils.now()
+		doc.director_comment = comment or ""
+		if doc.executor:
+			doc.status = "На исполнении"
+		else:
+			doc.status = "Согласован"
+		doc.save(ignore_permissions=True)
+		result = doc.as_dict()
+		result["verification_url"] = verification_url
+		return result
+	except requests.RequestException as e:
+		frappe.log_error(f"director_approve_with_fiska request error: {str(e)}\n{traceback.format_exc()}", "director_approve_fiska_error")
+		frappe.throw(f"Ошибка запроса к сервису: {str(e)[:200]}", frappe.ValidationError)
 
 
 @frappe.whitelist()
@@ -2459,7 +2664,8 @@ def sign_document_with_pkcs7(document_name, pkcs7):
 				json=request_data,
 				headers={
 					"Content-Type": "application/json",
-					"Accept": "application/json"
+					"Accept": "application/json",
+					"X-Api-Key": LEXDOC_FISKA_API_KEY,
 				},
 				timeout=60  # Увеличиваем timeout для обработки PDF
 			)

@@ -19,6 +19,8 @@ interface EImzoKeySelectDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onKeySelected: (key: Cert) => void
+  /** Режим фишки: только передать выбранный ключ в onKeySelected, подпись и эндпоинты делает родитель (getFiskaPdf → directorApproveWithFiska). Иначе — старый flow: подпись main_document и signDocumentWithPkcs7. */
+  useFiskaFlow?: boolean
   documentName?: string
   onDocumentSigned?: () => void
 }
@@ -26,7 +28,8 @@ interface EImzoKeySelectDialogProps {
 export function EImzoKeySelectDialog({
   open,
   onOpenChange,
-  onKeySelected: _onKeySelected,
+  onKeySelected,
+  useFiskaFlow = false,
   documentName,
   onDocumentSigned,
 }: EImzoKeySelectDialogProps) {
@@ -92,6 +95,13 @@ export function EImzoKeySelectDialog({
   const handleSelect = async () => {
     if (selectedKeyIndex === null || !keys[selectedKeyIndex]) return
 
+    // Режим фишки (согласование директором): только передаём ключ родителю — родитель сделает getFiskaPdf → подпись PDF → directorApproveWithFiska
+    if (useFiskaFlow) {
+      onKeySelected(keys[selectedKeyIndex])
+      onOpenChange(false)
+      return
+    }
+
     if (!documentName) {
       console.error('[E-IMZO] documentName is required')
       setError(t('eImzo.documentNotSpecified'))
@@ -104,7 +114,7 @@ export function EImzoKeySelectDialog({
     try {
       const cert = keys[selectedKeyIndex]
 
-      // Получаем PDF документ для подписи
+      // Получаем PDF документ для подписи (старый flow: подпись main_document → signDocumentWithPkcs7)
       const document = await api.getDocument(documentName)
       if (!document.main_document) {
         throw new Error(t('eImzo.noPdfFile'))

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   ArrowLeft,
   Calendar,
@@ -36,6 +37,7 @@ interface DocumentDetailProps {
 type TabType = 'document' | 'signatures' | 'history'
 
 export function DocumentDetail({ documentName }: DocumentDetailProps) {
+  const { t } = useTranslation()
   const [document, setDocument] = useState<EDODocument | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -309,7 +311,7 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-          <div className="text-lg text-muted-foreground">Загрузка документа...</div>
+          <div className="text-lg text-muted-foreground">{t('documentDetail.loading')}</div>
         </div>
       </div>
     )
@@ -319,10 +321,10 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px]">
         <AlertCircle className="w-16 h-16 text-destructive mb-4" />
-        <div className="text-lg text-destructive mb-4">{error || 'Документ не найден'}</div>
+        <div className="text-lg text-destructive mb-4">{error || t('documentDetail.documentNotFound')}</div>
         <Button variant="outline" onClick={() => (window.location.href = '/edo_documents')}>
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Вернуться к списку
+          {t('documentDetail.backToList')}
         </Button>
       </div>
     )
@@ -677,7 +679,7 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
                     <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg">
                       <Calendar className="w-5 h-5 text-blue-600" />
                       <div>
-                        <p className="text-xs text-muted-foreground">Входящая дата</p>
+                        <p className="text-xs text-muted-foreground">{t('documentDetail.incomingDate')}</p>
                         <p className="font-medium">
                           {new Date(document.incoming_date).toLocaleDateString('ru-RU')}
                         </p>
@@ -689,7 +691,7 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
                     <div className="flex items-center gap-3 p-3 bg-green-50 dark:bg-green-950/30 rounded-lg">
                       <Calendar className="w-5 h-5 text-green-600" />
                       <div>
-                        <p className="text-xs text-muted-foreground">Исходящая дата</p>
+                        <p className="text-xs text-muted-foreground">{t('documentDetail.outgoingDate')}</p>
                         <p className="font-medium">
                           {new Date(document.outgoing_date).toLocaleDateString('ru-RU')}
                         </p>
@@ -701,7 +703,7 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
                     <div className="flex items-center gap-3 p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg">
                       <Clock className="w-5 h-5 text-purple-600" />
                       <div>
-                        <p className="text-xs text-muted-foreground">Создан</p>
+                        <p className="text-xs text-muted-foreground">{t('documentDetail.created')}</p>
                         <p className="font-medium text-sm">
                           {new Date(document.creation).toLocaleString('ru-RU')}
                         </p>
@@ -719,7 +721,7 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
             <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 border-b">
               <CardTitle className="text-lg flex items-center gap-2">
                 <Users className="w-5 h-5 text-blue-600" />
-                Подписи исполнителей
+                {t('documentDetail.signaturesTab')}
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-6">
@@ -727,7 +729,7 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
                 <div className="mb-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950 rounded-lg border-2 border-blue-200 dark:border-blue-800">
                   <div className="flex justify-between text-sm mb-3">
                     <span className="font-semibold text-gray-700 dark:text-gray-300">
-                      Прогресс подписания
+                      {t('documentDetail.signingProgress')}
                     </span>
                     <span className="font-bold text-blue-600 dark:text-blue-400">
                       {signatureProgress.signed} из {signatureProgress.total}
@@ -802,7 +804,7 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
                               )}
                             </div>
                           ) : (
-                            <p className="text-sm text-muted-foreground mt-1">Ожидает подписания</p>
+                            <p className="text-sm text-muted-foreground mt-1">{t('documentDetail.waitingSignature')}</p>
                           )}
                         </div>
                         {signature ? (
@@ -820,7 +822,7 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
                 ) : (
                   <div className="text-center py-8 text-muted-foreground">
                     <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                    <p>Нет назначенных исполнителей</p>
+                    <p>{t('documentDetail.noExecutors')}</p>
                   </div>
                 )}
               </div>
@@ -833,7 +835,7 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
             <CardHeader className="bg-gradient-to-r from-slate-50 to-gray-50 dark:from-slate-900 dark:to-gray-900 border-b">
               <CardTitle className="text-lg flex items-center gap-2">
                 <History className="w-5 h-5 text-gray-600" />
-                История изменений
+                {t('documentDetail.historyTab')}
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-6">
@@ -907,11 +909,11 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <label className="text-sm font-medium mb-2 block">Комментарий (необязательно)</label>
+              <label className="text-sm font-medium mb-2 block">{t('documentDetail.commentOptional')}</label>
               <Textarea
                 value={comment}
                 onChange={e => setComment(e.target.value)}
-                placeholder="Введите комментарий..."
+                placeholder={t('documentDetail.commentPlaceholder')}
                 rows={4}
                 className="resize-none"
               />
@@ -919,14 +921,14 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setApproveDialogOpen(false)}>
-              Отмена
+              {t('common.cancel')}
             </Button>
             <Button
               onClick={handleApprove}
               disabled={actionLoading}
               className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
             >
-              {actionLoading ? 'Согласование...' : 'Согласовать'}
+              {actionLoading ? t('documentMetadata.approving') : t('documentMetadata.approve')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -946,11 +948,11 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <label className="text-sm font-medium mb-2 block">Причина отказа</label>
+              <label className="text-sm font-medium mb-2 block">{t('documentDetail.rejectReason')}</label>
               <Textarea
                 value={comment}
                 onChange={e => setComment(e.target.value)}
-                placeholder="Укажите причину отказа..."
+                placeholder={t('documentDetail.rejectReasonPlaceholder')}
                 rows={4}
                 className="resize-none"
               />
@@ -958,7 +960,7 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>
-              Отмена
+              {t('common.cancel')}
             </Button>
             <Button
               variant="destructive"
@@ -966,7 +968,7 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
               disabled={actionLoading}
               className="bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700"
             >
-              {actionLoading ? 'Отказ...' : 'Отказать'}
+              {actionLoading ? t('documentMetadata.rejecting') : t('documentMetadata.reject')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -986,11 +988,11 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <label className="text-sm font-medium mb-2 block">Комментарий (необязательно)</label>
+              <label className="text-sm font-medium mb-2 block">{t('documentDetail.commentOptional')}</label>
               <Textarea
                 value={comment}
                 onChange={e => setComment(e.target.value)}
-                placeholder="Введите комментарий..."
+                placeholder={t('documentDetail.commentPlaceholder')}
                 rows={4}
                 className="resize-none"
               />
@@ -998,7 +1000,7 @@ export function DocumentDetail({ documentName }: DocumentDetailProps) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setSignDialogOpen(false)}>
-              Отмена
+              {t('common.cancel')}
             </Button>
             <Button
               onClick={handleSign}

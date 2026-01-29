@@ -23,7 +23,7 @@ export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
         <Logo size="lg" />
         <div>
           <h1 className="font-bold text-lg leading-tight">EDO</h1>
-          <p className="text-xs text-muted-foreground leading-tight">Документооборот</p>
+          <p className="text-xs text-muted-foreground leading-tight">{t('app.subtitle')}</p>
         </div>
       </div>
 

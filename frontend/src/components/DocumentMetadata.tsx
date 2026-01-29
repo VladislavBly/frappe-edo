@@ -140,7 +140,7 @@ export function DocumentMetadata({
       }
     } catch (err) {
       console.error('Signing error:', err)
-      alert(err instanceof Error ? err.message : 'Ошибка при подписании')
+      alert(err instanceof Error ? err.message : t('documentMetadata.errorApproval'))
     } finally {
       setSigning(false)
     }
@@ -159,7 +159,7 @@ export function DocumentMetadata({
         onDocumentUpdate(updated)
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Ошибка при отказе')
+      alert(err instanceof Error ? err.message : t('documentMetadata.errorReject'))
     }
   }
 
@@ -176,22 +176,22 @@ export function DocumentMetadata({
         onDocumentUpdate(updated)
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Ошибка при подписании')
+      alert(err instanceof Error ? err.message : t('documentMetadata.errorApproval'))
     }
   }
 
   const handleReceptionSubmit = async () => {
     if (!document) return
     if (!useCustomResolution && !resolution) {
-      alert('Выберите резолюцию или введите текст резолюции')
+      alert(t('documentMetadata.validationSelectResolution'))
       return
     }
     if (useCustomResolution && !resolutionText.trim()) {
-      alert('Введите текст резолюции')
+      alert(t('documentMetadata.validationEnterResolution'))
       return
     }
     if (!executor) {
-      alert('Выберите исполнителя')
+      alert(t('documentMetadata.validationSelectExecutor'))
       return
     }
     try {
@@ -212,22 +212,22 @@ export function DocumentMetadata({
         onDocumentUpdate(updated)
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Ошибка при отправке директору')
+      alert(err instanceof Error ? err.message : t('documentMetadata.errorReceptionSubmit'))
     }
   }
 
   const handleDirectorEdit = async () => {
     if (!document) return
     if (!useCustomResolution && !resolution) {
-      alert('Выберите резолюцию или введите текст резолюции')
+      alert(t('documentMetadata.validationSelectResolution'))
       return
     }
     if (useCustomResolution && !resolutionText.trim()) {
-      alert('Введите текст резолюции')
+      alert(t('documentMetadata.validationEnterResolution'))
       return
     }
     if (!executor) {
-      alert('Выберите исполнителя')
+      alert(t('documentMetadata.validationSelectExecutor'))
       return
     }
     try {
@@ -250,7 +250,7 @@ export function DocumentMetadata({
         onDocumentUpdate(updated)
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Ошибка при обновлении резолюции и исполнителей')
+      alert(err instanceof Error ? err.message : t('documentMetadata.errorDirectorEdit'))
     }
   }
 
@@ -311,35 +311,35 @@ export function DocumentMetadata({
 
             {document.title && (
               <div className="col-span-2">
-                <p className="text-xs text-muted-foreground">Название</p>
+                <p className="text-xs text-muted-foreground">{t('documentMetadata.title')}</p>
                 <p className="font-medium">{document.title}</p>
               </div>
             )}
 
             {document.incoming_number && (
               <div>
-                <p className="text-xs text-muted-foreground">Входящий номер</p>
+                <p className="text-xs text-muted-foreground">{t('documentMetadata.incomingNumber')}</p>
                 <p className="font-medium">{document.incoming_number}</p>
               </div>
             )}
 
             {document.incoming_date && (
               <div>
-                <p className="text-xs text-muted-foreground">Входящая дата</p>
+                <p className="text-xs text-muted-foreground">{t('documentMetadata.incomingDate')}</p>
                 <p className="font-medium">{formatDate(document.incoming_date)}</p>
               </div>
             )}
 
             {document.outgoing_number && (
               <div>
-                <p className="text-xs text-muted-foreground">Исходящий номер</p>
+                <p className="text-xs text-muted-foreground">{t('documentMetadata.outgoingNumber')}</p>
                 <p className="font-medium">{document.outgoing_number}</p>
               </div>
             )}
 
             {document.outgoing_date && (
               <div>
-                <p className="text-xs text-muted-foreground">Исходящая дата</p>
+                <p className="text-xs text-muted-foreground">{t('documentMetadata.outgoingDate')}</p>
                 <p className="font-medium">{formatDate(document.outgoing_date)}</p>
               </div>
             )}
@@ -357,7 +357,7 @@ export function DocumentMetadata({
 
             {document.correspondent && (
               <div>
-                <p className="text-xs text-muted-foreground">Корреспондент</p>
+                <p className="text-xs text-muted-foreground">{t('documentMetadata.correspondent')}</p>
                 <p className="font-medium">
                   {document.correspondent_name || document.correspondent}
                 </p>
@@ -366,7 +366,7 @@ export function DocumentMetadata({
 
             {document.priority && (
               <div>
-                <p className="text-xs text-muted-foreground">Приоритет</p>
+                <p className="text-xs text-muted-foreground">{t('documentMetadata.priority')}</p>
                 <p className="font-medium">{document.priority_name || document.priority}</p>
               </div>
             )}
@@ -378,7 +378,7 @@ export function DocumentMetadata({
 
             {document.classification && (
               <div>
-                <p className="text-xs text-muted-foreground">Гриф</p>
+                <p className="text-xs text-muted-foreground">{t('documentMetadata.classification')}</p>
                 <p className="font-medium">
                   {document.classification_name || document.classification}
                 </p>
@@ -387,7 +387,7 @@ export function DocumentMetadata({
 
             {document.delivery_method && (
               <div>
-                <p className="text-xs text-muted-foreground">Способ доставки</p>
+                <p className="text-xs text-muted-foreground">{t('documentMetadata.deliveryMethod')}</p>
                 <p className="font-medium">
                   {document.delivery_method_name || document.delivery_method}
                 </p>
@@ -396,7 +396,7 @@ export function DocumentMetadata({
 
             {document.creation && (
               <div className="col-span-2">
-                <p className="text-xs text-muted-foreground">Дата создания</p>
+                <p className="text-xs text-muted-foreground">{t('documentMetadata.creationDate')}</p>
                 <p className="font-medium">{formatDate(document.creation)}</p>
               </div>
             )}
@@ -408,7 +408,7 @@ export function DocumentMetadata({
           document.resolution_text ||
           document.resolution_text_from_link) && (
           <div>
-            <h3 className="text-sm font-medium text-muted-foreground mb-3">Резолюция</h3>
+            <h3 className="text-sm font-medium text-muted-foreground mb-3">{t('documentMetadata.resolution')}</h3>
             <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/30 dark:to-pink-950/30 rounded-lg border border-purple-200 dark:border-purple-800 p-4 space-y-4">
               {(document.resolution_name ||
                 document.resolution_text ||
@@ -453,7 +453,7 @@ export function DocumentMetadata({
                         <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                           {document.executor_full_name || document.executor}
                         </p>
-                        <p className="text-xs text-purple-600 dark:text-purple-400">Исполнитель</p>
+                        <p className="text-xs text-purple-600 dark:text-purple-400">{t('documentMetadata.executorLabel').replace(' *', '')}</p>
                       </div>
                     </div>
                   )}
@@ -462,7 +462,7 @@ export function DocumentMetadata({
                     <div className="space-y-2">
                       <p className="text-xs font-medium text-purple-700 dark:text-purple-300 flex items-center gap-1">
                         <Users className="w-3 h-3" />
-                        Соисполнители ({document.co_executors.length})
+                        {t('documentMetadata.coExecutors')} ({document.co_executors.length})
                       </p>
                       <div className="space-y-2 pl-2">
                         {document.co_executors.map((coExec, index) => (
@@ -502,7 +502,7 @@ export function DocumentMetadata({
         ) &&
           (document.executor || (document.co_executors && document.co_executors.length > 0)) && (
             <div>
-              <h3 className="text-sm font-medium text-muted-foreground mb-3">Исполнители</h3>
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">{t('documentMetadata.executorsSection')}</h3>
               <div className="space-y-3">
                 {document.executor && (
                   <div className="flex items-center gap-3 p-2 bg-blue-50 rounded-lg">
@@ -521,7 +521,7 @@ export function DocumentMetadata({
                       <p className="font-medium text-sm">
                         {document.executor_full_name || document.executor}
                       </p>
-                      <p className="text-xs text-blue-600">Исполнитель</p>
+                      <p className="text-xs text-blue-600">{t('documentMetadata.executorLabel').replace(' *', '')}</p>
                     </div>
                   </div>
                 )}
@@ -530,7 +530,7 @@ export function DocumentMetadata({
                   <div className="space-y-2">
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                       <Users className="w-3 h-3" />
-                      Соисполнители ({document.co_executors.length})
+                      {t('documentMetadata.coExecutors')} ({document.co_executors.length})
                     </p>
                     {document.co_executors.map((coExec, index) => (
                       <div
@@ -560,7 +560,7 @@ export function DocumentMetadata({
         {/* Brief content */}
         {document.brief_content && (
           <div>
-            <h3 className="text-sm font-medium text-muted-foreground mb-3">Краткое содержание</h3>
+            <h3 className="text-sm font-medium text-muted-foreground mb-3">{t('documentMetadata.briefContent')}</h3>
             <p className="text-sm whitespace-pre-wrap">{document.brief_content}</p>
           </div>
         )}
@@ -569,7 +569,7 @@ export function DocumentMetadata({
         {document.director_comment && (
           <div>
             <h3 className="text-sm font-medium text-muted-foreground mb-3">
-              Комментарий директора
+              {t('documentMetadata.directorComment')}
             </h3>
             <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800">
               <p className="text-sm whitespace-pre-wrap">{document.director_comment}</p>
@@ -591,7 +591,7 @@ export function DocumentMetadata({
                 onClick={() => setReceptionDialogOpen(true)}
               >
                 <FileCheck className="w-4 h-4 mr-2" />
-                Обработать в приёмной
+                {t('documentMetadata.receptionSubmit')}
               </Button>
             )}
 
@@ -618,7 +618,7 @@ export function DocumentMetadata({
                   }}
                 >
                   <Edit className="w-4 h-4 mr-2" />
-                  Изменить резолюцию и исполнителей
+                  {t('documentMetadata.directorEditResolution')}
                 </Button>
                 <Button
                   className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-md"
@@ -626,7 +626,7 @@ export function DocumentMetadata({
                   onClick={handleApproveClick}
                 >
                   <CheckCircle2 className="w-4 h-4 mr-2" />
-                  Согласовать
+                  {t('documentMetadata.approve')}
                 </Button>
                 <Button
                   variant="destructive"
@@ -635,7 +635,7 @@ export function DocumentMetadata({
                   onClick={() => setRejectDialogOpen(true)}
                 >
                   <XCircle className="w-4 h-4 mr-2" />
-                  Отказать
+                  {t('documentMetadata.reject')}
                 </Button>
               </>
             )}
@@ -648,14 +648,15 @@ export function DocumentMetadata({
                 onClick={() => setSignDialogOpen(true)}
               >
                 <PenTool className="w-4 h-4 mr-2" />
-                Подписать документ
+                {t('documentMetadata.signDocument')}
               </Button>
             )}
 
-            {canEdit && (
+            {/* {t('documentMetadata.editDocument')} документ — не показывать исполнителям (только Менеджер/Директор/Админ) */}
+            {canEdit && !currentUser?.roles?.includes('EDO Executor') && (
               <Button className="w-full bg-blue-600 hover:bg-blue-700" size="sm" onClick={onEdit}>
                 <Edit className="w-4 h-4" />
-                Редактировать
+                {t('documentMetadata.editDocument')}
               </Button>
             )}
             <Button variant="outline" className="w-full" size="sm">
@@ -676,20 +677,19 @@ export function DocumentMetadata({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl">
               <CheckCircle2 className="w-6 h-6 text-green-600" />
-              Согласовать документ
+              {t('documentMetadata.approveTitle')}
             </DialogTitle>
             <DialogDescription className="text-base pt-2">
-              Вы уверены, что хотите согласовать этот документ? После согласования документ будет
-              отправлен исполнителям.
+              {t('documentMetadata.approveDescription')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <label className="text-sm font-medium mb-2 block">Комментарий (необязательно)</label>
+              <label className="text-sm font-medium mb-2 block">{t('documentMetadata.commentOptional')}</label>
               <Textarea
                 value={comment}
                 onChange={e => setComment(e.target.value)}
-                placeholder="Введите комментарий..."
+                placeholder={t('documentMetadata.commentPlaceholder')}
                 rows={4}
                 className="resize-none"
               />
@@ -704,7 +704,7 @@ export function DocumentMetadata({
               disabled={directorApproveMutation.isPending || signing}
               className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
             >
-              {signing ? 'Подписание...' : directorApproveMutation.isPending ? 'Согласование...' : 'Согласовать'}
+              {signing ? t('documentMetadata.signing') : directorApproveMutation.isPending ? t('documentMetadata.approving') : t('documentMetadata.approve')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -715,20 +715,19 @@ export function DocumentMetadata({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl">
               <XCircle className="w-6 h-6 text-red-600" />
-              Отказать в согласовании
+              {t('documentMetadata.rejectTitle')}
             </DialogTitle>
             <DialogDescription className="text-base pt-2">
-              Вы уверены, что хотите отказать в согласовании этого документа? После отказа документ
-              не будет отправлен исполнителям.
+              {t('documentMetadata.rejectDescription')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <label className="text-sm font-medium mb-2 block">Причина отказа</label>
+              <label className="text-sm font-medium mb-2 block">{t('documentMetadata.rejectReasonLabel')}</label>
               <Textarea
                 value={comment}
                 onChange={e => setComment(e.target.value)}
-                placeholder="Укажите причину отказа..."
+                placeholder={t('documentMetadata.rejectReasonPlaceholder')}
                 rows={4}
                 className="resize-none"
               />
@@ -744,7 +743,7 @@ export function DocumentMetadata({
               disabled={directorRejectMutation.isPending}
               className="bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700"
             >
-              {directorRejectMutation.isPending ? 'Отказ...' : 'Отказать'}
+              {directorRejectMutation.isPending ? t('documentMetadata.rejecting') : t('documentMetadata.reject')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -755,20 +754,19 @@ export function DocumentMetadata({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl">
               <PenTool className="w-6 h-6 text-blue-600" />
-              Подписать документ
+              {t('documentMetadata.signDocument')}
             </DialogTitle>
             <DialogDescription className="text-base pt-2">
-              Подписав документ, вы подтверждаете, что ознакомились с его содержанием и готовы
-              приступить к исполнению.
+              {t('documentMetadata.signDescription')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
-              <label className="text-sm font-medium mb-2 block">Комментарий (необязательно)</label>
+              <label className="text-sm font-medium mb-2 block">{t('documentMetadata.commentOptional')}</label>
               <Textarea
                 value={comment}
                 onChange={e => setComment(e.target.value)}
-                placeholder="Введите комментарий..."
+                placeholder={t('documentMetadata.commentPlaceholder')}
                 rows={4}
                 className="resize-none"
               />
@@ -783,7 +781,7 @@ export function DocumentMetadata({
               disabled={executorSignMutation.isPending}
               className="bg-gradient-to-r from-blue-500 to-cyan-600 hover:from-blue-600 hover:to-cyan-700"
             >
-              {executorSignMutation.isPending ? 'Подписание...' : 'Подписать'}
+              {executorSignMutation.isPending ? t('documentMetadata.signing') : t('documentMetadata.signDocument')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -795,10 +793,10 @@ export function DocumentMetadata({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl">
               <Edit className="w-6 h-6 text-purple-600" />
-              Изменить резолюцию и исполнителей
+              {t('documentMetadata.directorEditResolution')}
             </DialogTitle>
             <DialogDescription className="text-base pt-2">
-              Измените резолюцию и назначьте исполнителей для этого документа.
+              {t('documentMetadata.directorEditDescription')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -825,10 +823,10 @@ export function DocumentMetadata({
 
               {!useCustomResolution ? (
                 <>
-                  <Label htmlFor="resolution_director">Резолюция *</Label>
+                  <Label htmlFor="resolution_director">{t('documentMetadata.resolutionRequired')}</Label>
                   <Select value={resolution} onValueChange={setResolution}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Выберите резолюцию" />
+                      <SelectValue placeholder={t('documentMetadata.resolutionPlaceholder')} />
                     </SelectTrigger>
                     <SelectContent>
                       {resolutions.map(res => (
@@ -841,12 +839,12 @@ export function DocumentMetadata({
                 </>
               ) : (
                 <>
-                  <Label htmlFor="resolution_text_director">Текст резолюции *</Label>
+                  <Label htmlFor="resolution_text_director">{t('documentMetadata.resolutionTextLabel')}</Label>
                   <Textarea
                     id="resolution_text_director"
                     value={resolutionText}
                     onChange={e => setResolutionText(e.target.value)}
-                    placeholder="Введите текст резолюции..."
+                    placeholder={t('documentMetadata.resolutionTextPlaceholder')}
                     rows={4}
                     className="resize-none"
                   />
@@ -855,23 +853,23 @@ export function DocumentMetadata({
             </div>
 
             <div className="space-y-2">
-              <Label>Исполнитель *</Label>
+              <Label>{t('documentMetadata.executorLabel')}</Label>
               <UserSelect
                 users={users}
                 value={executor}
                 onChange={setExecutor}
-                placeholder="Поиск исполнителя..."
+                placeholder={t('documentMetadata.executorSearchPlaceholder')}
               />
             </div>
 
             <div className="space-y-2">
-              <Label>Соисполнители</Label>
+              <Label>{t('documentMetadata.coExecutors')}</Label>
               <UserMultiSelect
                 users={users}
                 value={coExecutors}
                 onChange={setCoExecutors}
                 excludeUsers={executor ? [executor] : []}
-                placeholder="Поиск соисполнителей..."
+                placeholder={t('documentMetadata.coExecutorsSearchPlaceholder')}
               />
             </div>
           </div>
@@ -889,7 +887,7 @@ export function DocumentMetadata({
               }
               className="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700"
             >
-              {updateDocumentMutation.isPending ? 'Сохранение...' : 'Сохранить'}
+              {updateDocumentMutation.isPending ? t('documentMetadata.saving') : t('common.save')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -900,10 +898,10 @@ export function DocumentMetadata({
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-xl">
               <FileCheck className="w-6 h-6 text-purple-600" />
-              Обработка в приёмной
+              {t('documentMetadata.receptionDialogTitle')}
             </DialogTitle>
             <DialogDescription className="text-base pt-2">
-              Назначьте исполнителей и выберите резолюцию для передачи документа директору.
+              {t('documentMetadata.receptionDialogDescription')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -930,10 +928,10 @@ export function DocumentMetadata({
 
               {!useCustomResolution ? (
                 <>
-                  <Label htmlFor="resolution">Резолюция *</Label>
+                  <Label htmlFor="resolution">{t('documentMetadata.resolutionRequired')}</Label>
                   <Select value={resolution} onValueChange={setResolution}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Выберите резолюцию" />
+                      <SelectValue placeholder={t('documentMetadata.resolutionPlaceholder')} />
                     </SelectTrigger>
                     <SelectContent>
                       {resolutions.map(res => (
@@ -946,12 +944,12 @@ export function DocumentMetadata({
                 </>
               ) : (
                 <>
-                  <Label htmlFor="resolution_text">Текст резолюции *</Label>
+                  <Label htmlFor="resolution_text">{t('documentMetadata.resolutionTextLabel')}</Label>
                   <Textarea
                     id="resolution_text"
                     value={resolutionText}
                     onChange={e => setResolutionText(e.target.value)}
-                    placeholder="Введите текст резолюции..."
+                    placeholder={t('documentMetadata.resolutionTextPlaceholder')}
                     rows={4}
                     className="resize-none"
                   />
@@ -960,23 +958,23 @@ export function DocumentMetadata({
             </div>
 
             <div className="space-y-2">
-              <Label>Исполнитель *</Label>
+              <Label>{t('documentMetadata.executorLabel')}</Label>
               <UserSelect
                 users={users}
                 value={executor}
                 onChange={setExecutor}
-                placeholder="Поиск исполнителя..."
+                placeholder={t('documentMetadata.executorSearchPlaceholder')}
               />
             </div>
 
             <div className="space-y-2">
-              <Label>Соисполнители</Label>
+              <Label>{t('documentMetadata.coExecutors')}</Label>
               <UserMultiSelect
                 users={users}
                 value={coExecutors}
                 onChange={setCoExecutors}
                 excludeUsers={executor ? [executor] : []}
-                placeholder="Поиск соисполнителей..."
+                placeholder={t('documentMetadata.coExecutorsSearchPlaceholder')}
               />
             </div>
           </div>
@@ -994,7 +992,7 @@ export function DocumentMetadata({
               }
               className="bg-gradient-to-r from-purple-500 to-pink-600 hover:from-purple-600 hover:to-pink-700"
             >
-              {receptionSubmitMutation.isPending ? 'Отправка...' : 'Отправить директору'}
+              {receptionSubmitMutation.isPending ? t('sending') : t('documentMetadata.sendToDirector')}
             </Button>
           </DialogFooter>
         </DialogContent>

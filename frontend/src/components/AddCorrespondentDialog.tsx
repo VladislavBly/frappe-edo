@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
@@ -19,6 +20,7 @@ export function AddCorrespondentDialog({
   onOpenChange,
   onCorrespondentCreated,
 }: AddCorrespondentDialogProps) {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
   const [correspondentName, setCorrespondentName] = useState('')
   const [correspondentType, setCorrespondentType] = useState('Юридическое лицо')
@@ -31,7 +33,7 @@ export function AddCorrespondentDialog({
 
   const handleSubmit = async () => {
     if (!correspondentName) {
-      alert('Введите название корреспондента')
+      alert(t('addCorrespondent.enterName'))
       return
     }
 
@@ -71,7 +73,7 @@ export function AddCorrespondentDialog({
       onOpenChange(false)
     } catch (error) {
       console.error('Failed to create correspondent:', error)
-      alert('Ошибка при создании корреспондента')
+      alert(t('addCorrespondent.createError'))
     } finally {
       setLoading(false)
     }
@@ -92,33 +94,33 @@ export function AddCorrespondentDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
         <DialogHeader className="text-left">
-          <DialogTitle className="text-xl">Новый корреспондент</DialogTitle>
+          <DialogTitle className="text-xl">{t('addCorrespondent.newCorrespondent')}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="correspondent_name">
-              Название <span className="text-red-500">*</span>
+              {t('addCorrespondent.nameLabel')} <span className="text-red-500">*</span>
             </Label>
             <Input
               id="correspondent_name"
-              placeholder="Введите название корреспондента"
+              placeholder={t('addCorrespondent.enterName')}
               value={correspondentName}
               onChange={e => setCorrespondentName(e.target.value)}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="correspondent_type">Тип корреспондента</Label>
+            <Label htmlFor="correspondent_type">{t('addCorrespondent.typeLabel')}</Label>
             <Select value={correspondentType} onValueChange={setCorrespondentType}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Физическое лицо">Физическое лицо</SelectItem>
-                <SelectItem value="Юридическое лицо">Юридическое лицо</SelectItem>
+                <SelectItem value="Физическое лицо">{t('addCorrespondent.physicalPerson')}</SelectItem>
+                <SelectItem value="Юридическое лицо">{t('addCorrespondent.legalPerson')}</SelectItem>
                 <SelectItem value="Государственная организация">
-                  Государственная организация
+                  {t('addCorrespondent.stateOrg')}
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -126,20 +128,20 @@ export function AddCorrespondentDialog({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="organization">Полное название организации</Label>
+              <Label htmlFor="organization">{t('addCorrespondent.organizationLabel')}</Label>
               <Input
                 id="organization"
-                placeholder="ООО «Компания»"
+                placeholder={t('addCorrespondent.organizationPlaceholder')}
                 value={organization}
                 onChange={e => setOrganization(e.target.value)}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="inn">ИНН</Label>
+              <Label htmlFor="inn">{t('addCorrespondent.innLabel')}</Label>
               <Input
                 id="inn"
-                placeholder="1234567890"
+                placeholder={t('addCorrespondent.innPlaceholder')}
                 value={inn}
                 onChange={e => setInn(e.target.value)}
               />
@@ -147,10 +149,10 @@ export function AddCorrespondentDialog({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="address">Адрес</Label>
+            <Label htmlFor="address">{t('addCorrespondent.addressLabel')}</Label>
             <Textarea
               id="address"
-              placeholder="г. Ташкент, ул. Примерная, д. 1"
+              placeholder={t('addCorrespondent.addressPlaceholder')}
               rows={2}
               value={address}
               onChange={e => setAddress(e.target.value)}
@@ -159,31 +161,31 @@ export function AddCorrespondentDialog({
 
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="contact_person">Контактное лицо</Label>
+              <Label htmlFor="contact_person">{t('addCorrespondent.contactPersonLabel')}</Label>
               <Input
                 id="contact_person"
-                placeholder="Иванов И.И."
+                placeholder={t('addCorrespondent.contactPersonPlaceholder')}
                 value={contactPerson}
                 onChange={e => setContactPerson(e.target.value)}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phone">Телефон</Label>
+              <Label htmlFor="phone">{t('addCorrespondent.phoneLabel')}</Label>
               <Input
                 id="phone"
-                placeholder="+998 90 123 45 67"
+                placeholder={t('addCorrespondent.phonePlaceholder')}
                 value={phone}
                 onChange={e => setPhone(e.target.value)}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('addCorrespondent.emailLabel')}</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="info@example.com"
+                placeholder={t('addCorrespondent.emailPlaceholder')}
                 value={email}
                 onChange={e => setEmail(e.target.value)}
               />
@@ -200,7 +202,7 @@ export function AddCorrespondentDialog({
               onOpenChange(false)
             }}
           >
-            Отмена
+            {t('common.cancel')}
           </Button>
           <Button
             type="button"
@@ -208,7 +210,7 @@ export function AddCorrespondentDialog({
             disabled={loading}
             className="bg-blue-600 hover:bg-blue-700 text-white"
           >
-            {loading ? 'Создание...' : 'Создать'}
+            {loading ? t('addCorrespondent.creating') : t('addCorrespondent.create')}
           </Button>
         </div>
       </DialogContent>

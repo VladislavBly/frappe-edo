@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Check, ChevronsUpDown, X, Search } from 'lucide-react'
 import { cn } from '../../lib/utils'
 import { Button } from './button'
@@ -17,11 +18,13 @@ export function UserSelect({
   users,
   value,
   onChange,
-  placeholder = 'Выберите пользователя',
+  placeholder,
   disabled = false,
 }: UserSelectProps) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const placeholderText = placeholder ?? t('common.selectUser')
 
   const selectedUser = users.find(u => u.name === value)
 
@@ -59,7 +62,7 @@ export function UserSelect({
             <span className="truncate">{selectedUser.full_name || selectedUser.name}</span>
           </div>
         ) : (
-          <span className="text-muted-foreground">{placeholder}</span>
+          <span className="text-muted-foreground">{placeholderText}</span>
         )}
         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
       </Button>
@@ -70,7 +73,7 @@ export function UserSelect({
             <div className="relative">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Поиск..."
+                placeholder={t('common.searchPlaceholder')}
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 className="pl-8"
@@ -138,12 +141,14 @@ export function UserMultiSelect({
   users,
   value,
   onChange,
-  placeholder = 'Выберите пользователей',
+  placeholder,
   disabled = false,
   excludeUsers = [],
 }: UserMultiSelectProps) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const placeholderText = placeholder ?? t('common.selectUsers')
 
   const availableUsers = useMemo(() => {
     return users.filter(u => !excludeUsers.includes(u.name))
@@ -202,7 +207,7 @@ export function UserMultiSelect({
             ))}
           </div>
         ) : (
-          <span className="text-muted-foreground">{placeholder}</span>
+          <span className="text-muted-foreground">{placeholderText}</span>
         )}
       </div>
 
@@ -212,7 +217,7 @@ export function UserMultiSelect({
             <div className="relative">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Поиск..."
+                placeholder={t('common.searchPlaceholder')}
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 className="pl-8"
@@ -223,7 +228,7 @@ export function UserMultiSelect({
           <div className="max-h-60 overflow-y-auto p-1">
             {filteredUsers.length === 0 ? (
               <div className="py-6 text-center text-sm text-muted-foreground">
-                Пользователи не найдены
+                {t('common.noUsersFound')}
               </div>
             ) : (
               filteredUsers.map(user => (

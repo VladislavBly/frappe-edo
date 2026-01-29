@@ -600,6 +600,10 @@ def create_document(**kwargs):
 	return doc.as_dict()
 
 
+# Fields that Director is allowed to change when document is "На рассмотрении"
+DIRECTOR_RESOLUTION_UPDATE_FIELDS = frozenset({"resolution", "resolution_text", "executor", "co_executors"})
+
+
 @frappe.whitelist()
 def update_document(name, **kwargs):
 	"""Update an existing EDO Document with permission check"""
@@ -608,44 +612,63 @@ def update_document(name, **kwargs):
 	if not user or user == "Guest":
 		frappe.throw("Not authorized", frappe.PermissionError)
 
-	# Check if user has permission to edit documents
 	user_roles = frappe.get_roles(user)
 	is_admin = "EDO Admin" in user_roles
-	
-	# Get document
+	is_director = "EDO Director" in user_roles or is_admin
+
 	doc = frappe.get_doc("EDO Document", name)
-	
-	# Проверяем, можно ли редактировать этот документ
-	# Если документ уже не в статусе "Новый" или есть подписи, редактирование закрыто для всех кроме админа
+
+	# Director/Admin: when document is "На рассмотрении", allow updating only resolution and executors
+	if is_director and doc.status == "На рассмотрении":
+		requested_keys = set(k for k in kwargs.keys() if k not in ("name", "doctype", "creation", "modified", "owner"))
+		if not requested_keys.issubset(DIRECTOR_RESOLUTION_UPDATE_FIELDS):
+			frappe.throw("В статусе «На рассмотрении» директор может менять только резолюцию и исполнителей.", frappe.ValidationError)
+		# Admin can update any doc; Director only docs assigned to them
+		if not is_admin:
+			if not doc.director_user or doc.director_user != user:
+				frappe.throw("Вы можете изменять только документы, назначенные вашей приёмной.", frappe.PermissionError)
+		for key, value in kwargs.items():
+			if key not in ["name", "doctype", "creation", "modified", "owner"] and key in DIRECTOR_RESOLUTION_UPDATE_FIELDS:
+				if hasattr(doc, key):
+					if key == "resolution" and value:
+						if not frappe.db.exists("EDO Resolution", value):
+							frappe.throw(f"Резолюция «{value}» не найдена.", frappe.ValidationError)
+						doc.resolution = value
+						doc.resolution_text = None
+					elif key == "resolution_text":
+						doc.resolution_text = (value or "").strip() or None
+						doc.resolution = None
+					elif key == "co_executors" and isinstance(value, list):
+						doc.set("co_executors", [])
+						for item in value:
+							doc.append("co_executors", item if isinstance(item, dict) else {"user": item})
+					elif key == "executor":
+						setattr(doc, key, value)
+		doc.save(ignore_permissions=True)
+		return doc.as_dict()
+
+	# Обычное редактирование: только документ в статусе "Новый" и без подписей (кроме админа)
 	if not is_admin:
 		if doc.status != "Новый" or (doc.signatures and len(doc.signatures) > 0):
 			frappe.throw("Документ уже подписан или обработан. Редактирование доступно только администратору.", frappe.PermissionError)
-		
-		# Проверяем базовые права на редактирование
 		can_edit = "EDO Manager" in user_roles or "EDO Director" in user_roles
 		if not can_edit:
 			frappe.throw("You don't have permission to edit documents", frappe.PermissionError)
 
-	# Update fields
-	# Status cannot be changed manually - it's set automatically by workflow
 	protected_fields = [
-		"status", "director_approved", "director_rejected", "director_user", "director_decision_date", 
+		"status", "director_approved", "director_rejected", "director_user", "director_decision_date",
 		"reception_user", "reception_decision_date"
 	]
-	
+
 	for key, value in kwargs.items():
 		if key not in ["name", "doctype", "creation", "modified", "owner"]:
-			# Prevent manual changes to protected workflow fields
 			if key in protected_fields:
 				frappe.throw(f"Field '{key}' cannot be changed manually. It is set automatically by the workflow.", frappe.ValidationError)
-			
 			if hasattr(doc, key):
-				# Handle child table (co_executors)
 				if key == "co_executors" and isinstance(value, list):
 					doc.set("co_executors", [])
 					for item in value:
-						doc.append("co_executors", item)
-				# Handle attachments child table
+						doc.append("co_executors", item if isinstance(item, dict) else {"user": item})
 				elif key == "attachments" and isinstance(value, list):
 					doc.set("attachments", [])
 					for item in value:
@@ -654,7 +677,6 @@ def update_document(name, **kwargs):
 					setattr(doc, key, value)
 
 	doc.save(ignore_permissions=True)
-
 	return doc.as_dict()
 
 

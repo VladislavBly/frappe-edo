@@ -113,7 +113,7 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
 
     // 1. Создан менеджером - всегда completed
     steps.push({
-      label: 'Создан менеджером',
+      label: t('documentContent.statusCreatedByManager'),
       status: 'completed',
       date: fullDocument.creation,
       icon: FileText,
@@ -122,41 +122,40 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
     // 2. Обработан в приёмной
     if (fullDocument.reception_user && fullDocument.reception_decision_date) {
       steps.push({
-        label: 'Обработан в приёмной',
+        label: t('documentContent.statusProcessedReception'),
         status: 'completed',
         date: fullDocument.reception_decision_date,
         icon: Clock,
       })
     } else {
       steps.push({
-        label: 'Обработка в приёмной',
+        label: t('documentContent.statusProcessingReception'),
         status: 'pending',
         date: undefined,
         icon: Clock,
       })
     }
 
-    // 3. Согласование директором (показываем только если документ уже обработан в приёмной)
-    // Если документ еще не обработан в приёмной, этот шаг не показываем
+    // 3. Согласование директором
     if (fullDocument.reception_user && fullDocument.reception_decision_date) {
       if (fullDocument.director_approved) {
         steps.push({
-          label: 'Согласован директором',
+          label: t('documentContent.statusApprovedDirector'),
           status: 'completed',
           date: fullDocument.director_decision_date || undefined,
           icon: CheckCircle2,
         })
       } else if (fullDocument.director_rejected) {
         steps.push({
-          label: 'Отказан директором',
+          label: t('documentContent.statusRejectedDirector'),
           status: 'rejected',
           date: fullDocument.director_decision_date || undefined,
           icon: XCircle,
         })
-        return steps // Если отказан, дальше шаги не показываем
+        return steps
       } else {
         steps.push({
-          label: 'На согласовании у директора',
+          label: t('documentContent.statusPendingDirector'),
           status: 'pending',
           date: undefined,
           icon: Shield,
@@ -164,8 +163,6 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
       }
     }
 
-    // 4. Подписание исполнителями (только если есть исполнители И документ согласован директором)
-    // Показываем этот шаг только если директор уже согласовал (или отказал, но тогда мы уже вернулись)
     const allExecutors = getAllExecutors()
     if (
       allExecutors.length > 0 &&
@@ -174,21 +171,21 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
       const progress = getSignatureProgress()
       if (fullDocument.status === 'Выполнено') {
         steps.push({
-          label: `Подписание исполнителями (${progress.signed}/${progress.total})`,
+          label: t('documentContent.statusSigningExecutors', { signed: progress.signed, total: progress.total }),
           status: 'completed',
           date: fullDocument.modified,
           icon: Users,
         })
       } else if (fullDocument.status === 'На исполнении') {
         steps.push({
-          label: `Подписание исполнителями (${progress.signed}/${progress.total})`,
+          label: t('documentContent.statusSigningExecutors', { signed: progress.signed, total: progress.total }),
           status: 'pending',
           date: undefined,
           icon: Users,
         })
       } else {
         steps.push({
-          label: `Подписание исполнителями (0/${allExecutors.length})`,
+          label: t('documentContent.statusSigningExecutors', { signed: 0, total: allExecutors.length }),
           status: 'pending',
           date: undefined,
           icon: Users,
@@ -196,17 +193,16 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
       }
     }
 
-    // 5. Выполнено
     if (fullDocument.status === 'Выполнено') {
       steps.push({
-        label: 'Выполнено',
+        label: t('documentContent.statusCompleted'),
         status: 'completed',
         date: fullDocument.modified,
         icon: Sparkles,
       })
     } else {
       steps.push({
-        label: 'Выполнено',
+        label: t('documentContent.statusCompleted'),
         status: 'pending',
         date: undefined,
         icon: Sparkles,
@@ -285,7 +281,7 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
             {currentDoc.main_document ? (
               <div className="bg-white border rounded-lg shadow-sm mb-6">
                 <div className="p-4 border-b flex items-center justify-between">
-                  <h3 className="text-sm font-medium">Превью документа</h3>
+                  <h3 className="text-sm font-medium">{t('documentContent.documentPreview')}</h3>
                   {currentDoc.main_document.toLowerCase().endsWith('.pdf') && (
                     <Button variant="outline" size="sm" onClick={() => setStampEditorOpen(true)}>
                       <Stamp className="w-4 h-4 mr-2" />
@@ -365,7 +361,7 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
             ) : (
               <div className="bg-white border rounded-lg shadow-sm mb-6 p-12 text-center text-muted-foreground">
                 <FileText className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                <p>Документ не загружен</p>
+                <p>{t('documentContent.documentNotLoaded')}</p>
               </div>
             )}
 
@@ -373,7 +369,7 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
             {currentDoc.attachments && currentDoc.attachments.length > 0 && (
               <div className="bg-white border rounded-lg shadow-sm mb-6">
                 <div className="p-4 border-b">
-                  <h3 className="text-sm font-medium">Вложения</h3>
+                  <h3 className="text-sm font-medium">{t('documentContent.attachments')}</h3>
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full">
@@ -622,7 +618,7 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
                   ) : (
                     <div className="text-center py-8 text-muted-foreground">
                       <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                      <p className="text-sm">Нет назначенных исполнителей</p>
+                      <p className="text-sm">{t('documentContent.noExecutors')}</p>
                     </div>
                   )}
                 </div>
@@ -721,7 +717,7 @@ export function DocumentContent({ document, loading }: DocumentContentProps) {
                 console.log('New main_document:', fullDoc.main_document)
               } catch (error) {
                 console.error('Failed to reload document after stamp application:', error)
-                alert('Штампы применены, но не удалось обновить документ. Обновите страницу.')
+                alert(t('documentContent.stampsUpdateError'))
               }
             }
           }}

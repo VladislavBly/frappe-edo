@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { FileText, Calendar } from 'lucide-react'
 import { Card, CardDescription, CardHeader, CardTitle } from './ui/card'
 import { Badge } from './ui/badge'
@@ -6,6 +7,7 @@ import { api } from '../lib/api'
 import type { EDODocument } from '../api/documents/types'
 
 export function DocumentList() {
+  const { t } = useTranslation()
   const [documents, setDocuments] = useState<EDODocument[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -42,7 +44,7 @@ export function DocumentList() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-lg text-muted-foreground">Загрузка документов...</div>
+        <div className="text-lg text-muted-foreground">{t('documentList.loading')}</div>
       </div>
     )
   }
@@ -50,7 +52,7 @@ export function DocumentList() {
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-lg text-destructive">Ошибка: {error}</div>
+        <div className="text-lg text-destructive">{t('documentList.error')}: {error}</div>
       </div>
     )
   }
@@ -59,8 +61,8 @@ export function DocumentList() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-center">
         <FileText className="w-16 h-16 text-muted-foreground mb-4" />
-        <h2 className="text-2xl font-semibold mb-2">Нет документов</h2>
-        <p className="text-muted-foreground">Документы появятся здесь после их создания</p>
+        <h2 className="text-2xl font-semibold mb-2">{t('documentList.noDocuments')}</h2>
+        <p className="text-muted-foreground">{t('documentList.noDocumentsHint')}</p>
       </div>
     )
   }

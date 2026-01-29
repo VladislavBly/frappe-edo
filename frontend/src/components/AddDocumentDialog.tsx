@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Upload, FileText, X } from 'lucide-react'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
@@ -40,6 +41,7 @@ export function AddDocumentDialog({
   editDocument,
   onDocumentUpdated,
 }: AddDocumentDialogProps) {
+  const { t } = useTranslation()
   const isEditMode = !!editDocument
   const [loading, setLoading] = useState(false)
   const uploadFileMutation = useUploadFile()
@@ -64,9 +66,9 @@ export function AddDocumentDialog({
   const [title, setTitle] = useState('')
   const [correspondent, setCorrespondent] = useState('')
   const [documentType, setDocumentType] = useState('')
-  const [priority, setPriority] = useState('Стандартный')
+  const [priority, setPriority] = useState('')
   const [briefContent, setBriefContent] = useState('')
-  const [classification, setClassification] = useState('Открыто')
+  const [classification, setClassification] = useState('')
   const [deliveryMethod, setDeliveryMethod] = useState('')
   const [receptionOffice, setReceptionOffice] = useState('')
   const [mainDocument, setMainDocument] = useState<File | null>(null)
@@ -151,13 +153,13 @@ export function AddDocumentDialog({
 
   const handleSubmit = async () => {
     if (!correspondent || !documentType) {
-      alert('Заполните обязательные поля')
+      alert(t('addDocument.fillRequired'))
       return
     }
 
     // Reception office is required for Manager (who selects which reception office to send document to)
     if (canSeeReceptionOffice && !receptionOffice) {
-      alert('Выберите приёмную')
+      alert(t('addDocument.selectReception'))
       return
     }
 
@@ -227,8 +229,8 @@ export function AddDocumentDialog({
     } catch (error: any) {
       console.error(isEditMode ? 'Failed to update document:' : 'Failed to create document:', error)
       let errorMessage = isEditMode
-        ? 'Ошибка при обновлении документа'
-        : 'Ошибка при создании документа'
+        ? t('addDocument.errorUpdate')
+        : t('addDocument.errorCreate')
       if (error?.message) {
         errorMessage += ': ' + error.message
       }
@@ -246,9 +248,9 @@ export function AddDocumentDialog({
     setTitle('')
     setCorrespondent('')
     setDocumentType('')
-    setPriority('Стандартный')
+    setPriority('')
     setBriefContent('')
-    setClassification('Открыто')
+    setClassification('')
     setDeliveryMethod('')
     setReceptionOffice('')
     setMainDocument(null)
@@ -265,25 +267,24 @@ export function AddDocumentDialog({
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto custom-scrollbar">
           <DialogHeader className="text-left">
             <DialogTitle className="text-xl">
-              {isEditMode ? 'Редактирование документа' : 'Новый документ'}
+              {isEditMode ? t('addDocument.editDocument') : t('addDocument.newDocument')}
             </DialogTitle>
           </DialogHeader>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Left column - Main info */}
             <div className="lg:col-span-2 space-y-6">
-              {/* Основная информация */}
               <div className="space-y-4">
-                <h3 className="text-base font-semibold">Основная информация</h3>
+                <h3 className="text-base font-semibold">{t('addDocument.mainInfo')}</h3>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="incoming_number">
-                      Входящий номер <span className="text-red-500">*</span>
+                      {t('addDocument.incomingNumber')} <span className="text-red-500">*</span>
                     </Label>
                     <Input
                       id="incoming_number"
-                      placeholder="Введите номер"
+                      placeholder={t('addDocument.numberPlaceholder')}
                       value={incomingNumber}
                       onChange={e => setIncomingNumber(e.target.value)}
                     />
@@ -291,7 +292,7 @@ export function AddDocumentDialog({
 
                   <div className="space-y-2">
                     <Label htmlFor="incoming_date">
-                      Входящая дата <span className="text-red-500">*</span>
+                      {t('addDocument.incomingDate')} <span className="text-red-500">*</span>
                     </Label>
                     <Input
                       id="incoming_date"
@@ -304,21 +305,21 @@ export function AddDocumentDialog({
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="outgoing_number">Исходящий номер</Label>
+                    <Label htmlFor="outgoing_number">{t('addDocument.outgoingNumber')}</Label>
                     <Input
                       id="outgoing_number"
-                      placeholder="Введите номер"
+                      placeholder={t('addDocument.numberPlaceholder')}
                       value={outgoingNumber}
                       onChange={e => setOutgoingNumber(e.target.value)}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="outgoing_date">Исходящая дата</Label>
+                    <Label htmlFor="outgoing_date">{t('addDocument.outgoingDate')}</Label>
                     <Input
                       id="outgoing_date"
                       type="date"
-                      placeholder="дд.мм.гггг"
+                      placeholder={t('addDocument.datePlaceholder')}
                       value={outgoingDate}
                       onChange={e => setOutgoingDate(e.target.value)}
                     />
@@ -326,10 +327,10 @@ export function AddDocumentDialog({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="title">Название документа</Label>
+                  <Label htmlFor="title">{t('addDocument.documentTitle')}</Label>
                   <Input
                     id="title"
-                    placeholder="Введите название документа"
+                    placeholder={t('addDocument.titlePlaceholder')}
                     value={title}
                     onChange={e => setTitle(e.target.value)}
                   />
@@ -337,12 +338,12 @@ export function AddDocumentDialog({
 
                 <div className="space-y-2">
                   <Label htmlFor="correspondent">
-                    Корреспондент <span className="text-red-500">*</span>
+                    {t('addDocument.correspondent')} <span className="text-red-500">*</span>
                   </Label>
                   <div className="flex gap-2">
                     <Select value={correspondent} onValueChange={setCorrespondent}>
                       <SelectTrigger className="flex-1">
-                        <SelectValue placeholder="Введите название организации" />
+                        <SelectValue placeholder={t('addDocument.correspondentPlaceholder')} />
                       </SelectTrigger>
                       <SelectContent>
                         {correspondents.map(corr => (
@@ -358,18 +359,18 @@ export function AddDocumentDialog({
                       className="shrink-0"
                       onClick={() => setShowAddCorrespondent(true)}
                     >
-                      Добавить
+                      {t('addDocument.add')}
                     </Button>
                   </div>
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="brief_content">
-                    Краткое содержание <span className="text-red-500">*</span>
+                    {t('addDocument.briefContent')} <span className="text-red-500">*</span>
                   </Label>
                   <Textarea
                     id="brief_content"
-                    placeholder="Введите краткое содержание документа"
+                    placeholder={t('addDocument.briefContentPlaceholder')}
                     rows={3}
                     value={briefContent}
                     onChange={e => setBriefContent(e.target.value)}
@@ -379,11 +380,11 @@ export function AddDocumentDialog({
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="document_type">
-                      Вид документа <span className="text-red-500">*</span>
+                      {t('addDocument.documentType')} <span className="text-red-500">*</span>
                     </Label>
                     <Select value={documentType} onValueChange={setDocumentType}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Выберите вид" />
+                        <SelectValue placeholder={t('addDocument.documentTypePlaceholder')} />
                       </SelectTrigger>
                       <SelectContent>
                         {documentTypes.map(type => (
@@ -396,10 +397,10 @@ export function AddDocumentDialog({
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="priority">Приоритет</Label>
+                    <Label htmlFor="priority">{t('addDocument.priority')}</Label>
                     <Select value={priority} onValueChange={setPriority}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Стандартный" />
+                        <SelectValue placeholder={t('addDocument.priorityPlaceholder')} />
                       </SelectTrigger>
                       <SelectContent>
                         {priorities.map(prio => (
@@ -413,46 +414,43 @@ export function AddDocumentDialog({
                 </div>
               </div>
 
-              {/* Исполнители - только для приемной */}
               {canSeeExecutors && (
                 <div className="space-y-4">
-                  <h3 className="text-base font-semibold">Исполнители</h3>
+                  <h3 className="text-base font-semibold">{t('addDocument.executors')}</h3>
 
                   <div className="space-y-2">
-                    <Label>Исполнитель</Label>
+                    <Label>{t('addDocument.executor')}</Label>
                     <UserSelect
                       users={users}
                       value={executor}
                       onChange={setExecutor}
-                      placeholder="Поиск исполнителя..."
+                      placeholder={t('addDocument.executorSearchPlaceholder')}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Соисполнители</Label>
+                    <Label>{t('addDocument.coExecutors')}</Label>
                     <UserMultiSelect
                       users={users}
                       value={coExecutors}
                       onChange={setCoExecutors}
                       excludeUsers={executor ? [executor] : []}
-                      placeholder="Поиск соисполнителей..."
+                      placeholder={t('addDocument.coExecutorsSearchPlaceholder')}
                     />
                   </div>
                 </div>
               )}
 
-              {/* Дополнительная информация */}
               <div className="space-y-4">
-                <h3 className="text-base font-semibold">Дополнительная информация</h3>
+                <h3 className="text-base font-semibold">{t('addDocument.additionalInfo')}</h3>
 
                 <div className="grid grid-cols-2 gap-4">
-                  {/* Приёмная - только для менеджера (чтобы выбрать, куда отправить документ) */}
                   {canSeeReceptionOffice && (
                     <div className="space-y-2">
-                      <Label htmlFor="reception_office">Приёмная *</Label>
+                      <Label htmlFor="reception_office">{t('addDocument.receptionOffice')}</Label>
                       <Select value={receptionOffice} onValueChange={setReceptionOffice}>
                         <SelectTrigger>
-                          <SelectValue placeholder="Выберите приёмную" />
+                          <SelectValue placeholder={t('addDocument.receptionPlaceholder')} />
                         </SelectTrigger>
                         <SelectContent>
                           {receptionOffices.map(office => (
@@ -466,10 +464,10 @@ export function AddDocumentDialog({
                   )}
 
                   <div className={`space-y-2 ${canSeeReceptionOffice ? '' : 'col-span-2'}`}>
-                    <Label htmlFor="delivery_method">Способ доставки</Label>
+                    <Label htmlFor="delivery_method">{t('addDocument.deliveryMethod')}</Label>
                     <Select value={deliveryMethod} onValueChange={setDeliveryMethod}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Выберите способ" />
+                        <SelectValue placeholder={t('addDocument.deliveryPlaceholder')} />
                       </SelectTrigger>
                       <SelectContent>
                         {deliveryMethods.map(method => (
@@ -484,10 +482,10 @@ export function AddDocumentDialog({
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="classification">Гриф</Label>
+                    <Label htmlFor="classification">{t('addDocument.classification')}</Label>
                     <Select value={classification} onValueChange={setClassification}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Открыто" />
+                        <SelectValue placeholder={t('addDocument.classificationPlaceholder')} />
                       </SelectTrigger>
                       <SelectContent>
                         {classifications.map(classif => (
@@ -504,15 +502,14 @@ export function AddDocumentDialog({
 
             {/* Right column - File upload and reference */}
             <div className="space-y-6">
-              {/* Файл документа */}
               <div className="space-y-4">
-                <h3 className="text-base font-semibold">Файл документа</h3>
+                <h3 className="text-base font-semibold">{t('addDocument.documentFile')}</h3>
                 <div className="border-2 border-dashed rounded-lg p-6 text-center">
                   <Upload className="w-12 h-12 mx-auto text-muted-foreground mb-3" />
                   <p className="text-sm text-muted-foreground mb-2">
-                    Перетащите файл сюда или нажмите для выбора
+                    {t('addDocument.dragFileHint')}
                   </p>
-                  <p className="text-xs text-muted-foreground mb-4">PDF, DOC, DOCX до 10 МБ</p>
+                  <p className="text-xs text-muted-foreground mb-4">{t('addDocument.fileTypesHint')}</p>
                   <input
                     type="file"
                     id="file-upload"
@@ -526,9 +523,8 @@ export function AddDocumentDialog({
                     size="sm"
                     onClick={() => document.getElementById('file-upload')?.click()}
                   >
-                    Выбрать файл
+                    {t('addDocument.selectFile')}
                   </Button>
-                  {/* Show existing main document in edit mode */}
                   {existingMainDocument && !mainDocument && (
                     <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
                       <FileText className="w-5 h-5 text-green-600 flex-shrink-0" />
@@ -536,19 +532,18 @@ export function AddDocumentDialog({
                         <p className="text-sm font-medium text-green-900 truncate">
                           {existingMainDocument.split('/').pop()}
                         </p>
-                        <p className="text-xs text-green-600">Текущий файл</p>
+                        <p className="text-xs text-green-600">{t('addDocument.currentFile')}</p>
                       </div>
                       <button
                         type="button"
                         onClick={() => setExistingMainDocument(null)}
                         className="text-green-600 hover:text-red-600"
-                        title="Удалить файл"
+                        title={t('addDocument.deleteFile')}
                       >
                         <X className="w-4 h-4" />
                       </button>
                     </div>
                   )}
-                  {/* Show newly selected file */}
                   {mainDocument && (
                     <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
                       <FileText className="w-5 h-5 text-blue-600 flex-shrink-0" />
@@ -557,7 +552,7 @@ export function AddDocumentDialog({
                           {mainDocument.name}
                         </p>
                         <p className="text-xs text-blue-600">
-                          {(mainDocument.size / 1024).toFixed(1)} КБ (новый)
+                          {(mainDocument.size / 1024).toFixed(1)} КБ ({t('addDocument.newFile')})
                         </p>
                       </div>
                       <button
@@ -572,9 +567,8 @@ export function AddDocumentDialog({
                 </div>
               </div>
 
-              {/* Вложения */}
               <div className="space-y-4">
-                <h3 className="text-base font-semibold">Вложения</h3>
+                <h3 className="text-base font-semibold">{t('addDocument.attachments')}</h3>
                 <div className="space-y-2">
                   <input
                     type="file"
@@ -591,12 +585,11 @@ export function AddDocumentDialog({
                     className="w-full"
                     onClick={() => document.getElementById('attachments-upload')?.click()}
                   >
-                    Добавить файлы
+                    {t('addDocument.addFiles')}
                   </Button>
-                  {/* Existing attachments */}
                   {existingAttachments.length > 0 && (
                     <div className="space-y-2 mt-2">
-                      <p className="text-xs text-muted-foreground">Текущие вложения:</p>
+                      <p className="text-xs text-muted-foreground">{t('addDocument.currentAttachments')}</p>
                       {existingAttachments.map((att, index) => (
                         <div
                           key={`existing-${index}`}
@@ -615,7 +608,7 @@ export function AddDocumentDialog({
                             type="button"
                             onClick={() => removeExistingAttachment(index)}
                             className="text-green-600 hover:text-red-600"
-                            title="Удалить вложение"
+                            title={t('addDocument.deleteAttachment')}
                           >
                             <X className="w-4 h-4" />
                           </button>
@@ -623,10 +616,9 @@ export function AddDocumentDialog({
                       ))}
                     </div>
                   )}
-                  {/* New attachments */}
                   {attachments.length > 0 && (
                     <div className="space-y-2 mt-2">
-                      <p className="text-xs text-muted-foreground">Новые вложения:</p>
+                      <p className="text-xs text-muted-foreground">{t('addDocument.newAttachments')}</p>
                       {attachments.map((file, index) => (
                         <div
                           key={index}
@@ -653,25 +645,17 @@ export function AddDocumentDialog({
                 </div>
               </div>
 
-              {/* Справка */}
               <div className="space-y-3 text-sm">
-                <h3 className="text-base font-semibold">Справка</h3>
+                <h3 className="text-base font-semibold">{t('addDocument.help')}</h3>
                 <div className="space-y-2 text-muted-foreground">
-                  <p>
-                    <strong>Входящий номер:</strong> Присваивается автоматически при регистрации
-                  </p>
-                  <p>
-                    <strong>Корреспондент:</strong> Можно указать несколько организаций
-                  </p>
-                  <p>
-                    <strong>Электронная отметка:</strong> Ставится после регистрации документа
-                  </p>
+                  <p>{t('addDocument.helpIncomingNumber')}</p>
+                  <p>{t('addDocument.helpCorrespondent')}</p>
+                  <p>{t('addDocument.helpStamp')}</p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Footer buttons */}
           <div className="flex items-center justify-between pt-4 border-t">
             <Button
               type="button"
@@ -681,11 +665,11 @@ export function AddDocumentDialog({
                 onOpenChange(false)
               }}
             >
-              Отмена
+              {t('common.cancel')}
             </Button>
             <div className="flex gap-2">
               <Button type="button" variant="outline" disabled={loading}>
-                Сохранить черновик
+                {t('addDocument.saveDraft')}
               </Button>
               <Button
                 type="button"
@@ -694,14 +678,14 @@ export function AddDocumentDialog({
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 {uploadFileMutation.isPending
-                  ? 'Загрузка файла...'
+                  ? t('addDocument.uploadingFile')
                   : loading
                     ? isEditMode
-                      ? 'Сохранение...'
-                      : 'Создание...'
+                      ? t('addDocument.saving')
+                      : t('addDocument.creating')
                     : isEditMode
-                      ? 'Сохранить'
-                      : 'Зарегистрировать'}
+                      ? t('addDocument.save')
+                      : t('addDocument.register')}
               </Button>
             </div>
           </div>

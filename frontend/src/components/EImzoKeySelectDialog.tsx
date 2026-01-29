@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 import {
   Dialog,
   DialogContent,
@@ -36,6 +37,7 @@ export function EImzoKeySelectDialog({
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const { showToast } = useToast()
+  const { t } = useTranslation()
 
   useEffect(() => {
     if (open) {
@@ -66,7 +68,7 @@ export function EImzoKeySelectDialog({
       const allKeys = await getAllCertificatesPfxParsed()
 
       if (allKeys.length === 0) {
-        setError('Ключи e-imzo не найдены. Убедитесь, что плагин установлен и ключи загружены.')
+        setError(t('eImzo.keysNotFound'))
         setLoading(false)
         return
       }
@@ -80,7 +82,7 @@ export function EImzoKeySelectDialog({
       setError(
         err instanceof Error
           ? err.message
-          : 'Не удалось загрузить ключи e-imzo. Проверьте установку плагина.'
+          : t('eImzo.loadKeysError')
       )
     } finally {
       setLoading(false)
@@ -92,7 +94,7 @@ export function EImzoKeySelectDialog({
 
     if (!documentName) {
       console.error('[E-IMZO] documentName is required')
-      setError('Не указан документ для подписания')
+      setError(t('eImzo.documentNotSpecified'))
       return
     }
 
@@ -105,13 +107,13 @@ export function EImzoKeySelectDialog({
       // Получаем PDF документ для подписи
       const document = await api.getDocument(documentName)
       if (!document.main_document) {
-        throw new Error('У документа нет PDF файла для подписания')
+        throw new Error(t('eImzo.noPdfFile'))
       }
 
       // Получаем PDF файл
       const pdfResponse = await fetch(document.main_document)
       if (!pdfResponse.ok) {
-        throw new Error('Не удалось загрузить PDF файл')
+        throw new Error(t('eImzo.loadPdfError'))
       }
       const pdfBlob = await pdfResponse.blob()
       const pdfArrayBuffer = await pdfBlob.arrayBuffer()
@@ -134,10 +136,9 @@ export function EImzoKeySelectDialog({
       
       console.log('[E-IMZO] Результат подписания:', result)
 
-      // Показываем успешное уведомление
       showToast({
-        title: 'Документ успешно подписан',
-        message: 'PDF документ обработан и сохранен',
+        title: t('eImzo.signSuccess'),
+        message: t('eImzo.signSuccessMessage'),
         type: 'success',
       })
 
@@ -151,8 +152,7 @@ export function EImzoKeySelectDialog({
     } catch (err) {
       console.error('[E-IMZO] Ошибка подписания:', err)
 
-      // Парсим ошибку для определения источника (и НЕ выводим traceback в модалку)
-      let errorMessage = 'Ошибка при подписании документа'
+      let errorMessage = t('eImzo.signError')
       let errorSource: 'our_side' | 'lexdoc' = 'our_side'
 
       if (err instanceof Error) {
@@ -165,9 +165,9 @@ export function EImzoKeySelectDialog({
         }
       }
 
-      const sourceLabel = errorSource === 'lexdoc' ? 'LexDoc API' : 'нашей системы'
+      const sourceLabel = errorSource === 'lexdoc' ? t('eImzo.errorSideLexdoc') : t('eImzo.errorSideOur')
       showToast({
-        title: `Ошибка со стороны ${sourceLabel}`,
+        title: `${t('eImzo.errorSidePrefix')} ${sourceLabel}`,
         message: errorMessage,
         type: 'error',
         duration: 8000,
@@ -192,7 +192,7 @@ export function EImzoKeySelectDialog({
   const getKeyData = (key: Cert) => {
     const alias = key.parsedAlias || {}
     return {
-      fio: alias.cn?.toUpperCase() || 'Неизвестный ключ',
+      fio: alias.cn?.toUpperCase() || t('eImzo.unknownKey'),
       serialNumber: alias.serialnumber || '',
       pinfl: alias['1.2.860.3.16.1.2'] || '',
       validFrom: formatDate(alias.validfrom),
@@ -209,10 +209,10 @@ export function EImzoKeySelectDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-xl">
             <CheckCircle2 className="w-6 h-6 text-green-600" />
-            Выбор ключа e-imzo
+            {t('eImzo.dialogTitle')}
           </DialogTitle>
           <DialogDescription className="text-base pt-2">
-            Выберите ключ электронной подписи для согласования документа
+            {t('eImzo.selectKeyTitle')}
           </DialogDescription>
         </DialogHeader>
 
@@ -224,7 +224,7 @@ export function EImzoKeySelectDialog({
             <div className="flex items-center justify-between gap-3 p-4 bg-destructive/10 border border-destructive/20 rounded-md">
               <div className="flex items-center gap-2">
                 <AlertCircle className="w-5 h-5 text-destructive shrink-0" />
-                <p className="text-sm text-destructive/90">Не удалось загрузить ключи</p>
+                <p className="text-sm text-destructive/90">{t('eImzo.loadKeysErrorShort')}</p>
               </div>
               <Button variant="ghost" size="sm" onClick={loadKeys}>
                 <RefreshCw className="w-4 h-4" />
@@ -243,27 +243,27 @@ export function EImzoKeySelectDialog({
                 {selectedData ? (
                   <div className="space-y-1 pr-8">
                     <p className="text-sm">
-                      <span className="font-medium text-muted-foreground">Серийный номер:</span>{' '}
+                      <span className="font-medium text-muted-foreground">{t('eImzo.serialNumber')}</span>{' '}
                       {selectedData.serialNumber}
                     </p>
                     <p className="text-sm flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-muted-foreground">ПИНФЛ:</span>{' '}
+                      <span className="font-medium text-muted-foreground">{t('eImzo.pinfl')}</span>{' '}
                       {selectedData.pinfl}
                       <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded font-medium">
-                        ФИЗИЧЕСКОЕ ЛИЦО
+                        {t('eImzo.physicalPerson')}
                       </span>
                     </p>
                     <p className="text-sm">
-                      <span className="font-medium text-muted-foreground">Ф.И.О.:</span>{' '}
+                      <span className="font-medium text-muted-foreground">{t('eImzo.fio')}</span>{' '}
                       {selectedData.fio}
                     </p>
                     <p className="text-sm">
-                      <span className="font-medium text-muted-foreground">Срок действия:</span>{' '}
+                      <span className="font-medium text-muted-foreground">{t('eImzo.validPeriod')}</span>{' '}
                       {selectedData.validFrom} - {selectedData.validTo}
                     </p>
                   </div>
                 ) : (
-                  <span className="text-muted-foreground">Выберите сертификат</span>
+                  <span className="text-muted-foreground">{t('eImzo.selectCertificate')}</span>
                 )}
                 <ChevronDown
                   className={`absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground transition-transform ${
@@ -292,22 +292,22 @@ export function EImzoKeySelectDialog({
                       >
                         <div className="space-y-1">
                           <p className="text-sm">
-                            <span className="font-medium text-muted-foreground">Серийный номер:</span>{' '}
+                            <span className="font-medium text-muted-foreground">{t('eImzo.serialNumber')}</span>{' '}
                             {data.serialNumber}
                           </p>
                           <p className="text-sm flex items-center gap-2 flex-wrap">
-                            <span className="font-medium text-muted-foreground">ПИНФЛ:</span>{' '}
+                            <span className="font-medium text-muted-foreground">{t('eImzo.pinfl')}</span>{' '}
                             {data.pinfl}
                             <span className="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded font-medium">
-                              ФИЗИЧЕСКОЕ ЛИЦО
+                              {t('eImzo.physicalPerson')}
                             </span>
                           </p>
                           <p className="text-sm">
-                            <span className="font-medium text-muted-foreground">Ф.И.О.:</span>{' '}
+                            <span className="font-medium text-muted-foreground">{t('eImzo.fio')}</span>{' '}
                             {data.fio}
                           </p>
                           <p className="text-sm">
-                            <span className="font-medium text-muted-foreground">Срок действия:</span>{' '}
+                            <span className="font-medium text-muted-foreground">{t('eImzo.validPeriod')}</span>{' '}
                             {data.validFrom} - {data.validTo}
                           </p>
                         </div>
@@ -322,21 +322,21 @@ export function EImzoKeySelectDialog({
           {!loading && !error && keys.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
               <AlertCircle className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p>Ключи e-imzo не найдены</p>
+              <p>{t('eImzo.keysNotFound')}</p>
             </div>
           )}
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Отмена
+            {t('common.cancel')}
           </Button>
           <Button
             onClick={handleSelect}
             disabled={loading || selectedKeyIndex === null || keys.length === 0}
             className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
           >
-            Выбрать ключ
+            {t('eImzo.selectKey')}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
@@ -25,16 +26,16 @@ interface PlacedStamp extends StampPlacement {
   stamp_image: string
 }
 
-const POSITIONS = [
-  { value: 'top-left', label: 'Верх-лево' },
-  { value: 'top-center', label: 'Верх-центр' },
-  { value: 'top-right', label: 'Верх-право' },
-  { value: 'center', label: 'Центр' },
-  { value: 'bottom-left', label: 'Низ-лево' },
-  { value: 'bottom-center', label: 'Низ-центр' },
-  { value: 'bottom-right', label: 'Низ-право' },
-  { value: 'custom', label: 'Произвольно' },
-] as const
+const POSITION_KEYS: { value: string; key: string }[] = [
+  { value: 'top-left', key: 'positionTopLeft' },
+  { value: 'top-center', key: 'positionTopCenter' },
+  { value: 'top-right', key: 'positionTopRight' },
+  { value: 'center', key: 'positionCenter' },
+  { value: 'bottom-left', key: 'positionBottomLeft' },
+  { value: 'bottom-center', key: 'positionBottomCenter' },
+  { value: 'bottom-right', key: 'positionBottomRight' },
+  { value: 'custom', key: 'positionCustom' },
+]
 
 export function PdfStampEditor({
   documentName,
@@ -42,6 +43,7 @@ export function PdfStampEditor({
   onClose,
   onStampApplied,
 }: PdfStampEditorProps) {
+  const { t } = useTranslation()
   const { data: stampsData = [], isLoading: stampsLoading } = useStamps()
   const {
     data: pdfInfoData,
@@ -262,13 +264,13 @@ export function PdfStampEditor({
         onStampApplied()
       } else {
         // Ошибка, но без исключения
-        const errorMsg = result?.message || 'Не удалось применить штампы'
+        const errorMsg = result?.message || t('stamps.applyError')
         alert(errorMsg)
         console.error('Failed to apply stamps:', result)
       }
     } catch (error: any) {
       // Ошибка при вызове API
-      const errorMsg = error?.message || 'Произошла ошибка при применении штампов'
+      const errorMsg = error?.message || t('stamps.applyErrorGeneric')
       alert(errorMsg)
       console.error('Failed to apply stamps:', error)
     }
@@ -560,7 +562,7 @@ export function PdfStampEditor({
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
         <div className="bg-white rounded-lg p-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto" />
-          <p className="mt-4 text-gray-600">Загрузка...</p>
+          <p className="mt-4 text-gray-600">{t('stamps.loading')}</p>
         </div>
       </div>
     )
@@ -571,7 +573,7 @@ export function PdfStampEditor({
       <div className="bg-white rounded-lg w-full max-w-6xl max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-xl font-semibold">Добавить штамп на PDF</h2>
+          <h2 className="text-xl font-semibold">{t('stamps.addStampTitle')}</h2>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full">
             <X className="w-5 h-5" />
           </button>
@@ -611,7 +613,7 @@ export function PdfStampEditor({
             >
               <Document
                 file={pdfUrl}
-                loading={<div className="p-8 text-center">Загрузка PDF...</div>}
+                loading={<div className="p-8 text-center">{t('stamps.loadingPdf')}</div>}
               >
                 <Page
                   pageNumber={currentPage}
@@ -678,7 +680,7 @@ export function PdfStampEditor({
                             const placeholder = document.createElement('div')
                             placeholder.className =
                               'error-placeholder text-center text-gray-400 text-sm py-4'
-                            placeholder.textContent = 'Изображение не загружено'
+                            placeholder.textContent = t('stamps.imageNotLoaded')
                             parent.appendChild(placeholder)
                           }
                         }}
@@ -701,14 +703,14 @@ export function PdfStampEditor({
 
           {/* Right panel - Controls */}
           <div className="w-80 p-4 border-l flex flex-col">
-            <h3 className="font-medium mb-4">Настройки штампа</h3>
+            <h3 className="font-medium mb-4">{t('stamps.settingsTitle')}</h3>
 
             {/* Stamp selector */}
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">Штамп</label>
+              <label className="block text-sm font-medium mb-1">{t('stamps.stampLabel')}</label>
               <Select value={selectedStamp} onValueChange={setSelectedStamp}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Выберите штамп" />
+                  <SelectValue placeholder={t('stamps.selectStamp')} />
                 </SelectTrigger>
                 <SelectContent>
                   {stamps.map(stamp => (
@@ -727,7 +729,7 @@ export function PdfStampEditor({
                     if (!stamp) {
                       return (
                         <div className="text-center text-gray-400 text-sm py-4">
-                          Штамп не найден
+                          {t('stamps.stampNotFound')}
                         </div>
                       )
                     }
@@ -750,7 +752,7 @@ export function PdfStampEditor({
                               const placeholder = document.createElement('div')
                               placeholder.className =
                                 'preview-placeholder text-center text-gray-400 text-sm py-4'
-                              placeholder.textContent = 'Изображение не загружено'
+                              placeholder.textContent = t('stamps.imageNotLoaded')
                               parent.appendChild(placeholder)
                             }
                           }}
@@ -784,15 +786,15 @@ export function PdfStampEditor({
 
             {/* Position selector */}
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">Позиция</label>
+              <label className="block text-sm font-medium mb-1">{t('stamps.position')}</label>
               <Select value={selectedPosition} onValueChange={setSelectedPosition}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {POSITIONS.map(pos => (
+                  {POSITION_KEYS.map(pos => (
                     <SelectItem key={pos.value} value={pos.value}>
-                      {pos.label}
+                      {t(`stamps.${pos.key}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -835,7 +837,7 @@ export function PdfStampEditor({
                 Добавленные штампы ({placedStamps.length})
               </h4>
               {placedStamps.length === 0 ? (
-                <p className="text-sm text-gray-500">Нет добавленных штампов</p>
+                <p className="text-sm text-gray-500">{t('stamps.noStampsAdded')}</p>
               ) : (
                 <div className="space-y-2">
                   {placedStamps.map(stamp => (
@@ -847,7 +849,7 @@ export function PdfStampEditor({
                         <div className="font-medium">{stamp.stamp_title}</div>
                         <div className="text-xs text-gray-500">
                           Стр. {stamp.page_number + 1} |{' '}
-                          {POSITIONS.find(p => p.value === stamp.position)?.label}
+                          {(() => { const p = POSITION_KEYS.find(x => x.value === stamp.position); return p ? t(`stamps.${p.key}`) : stamp.position; })()}
                         </div>
                       </div>
                       <button
@@ -867,13 +869,13 @@ export function PdfStampEditor({
         {/* Footer */}
         <div className="flex items-center justify-end gap-3 p-4 border-t">
           <Button variant="outline" onClick={onClose}>
-            Отмена
+            {t('common.cancel')}
           </Button>
           <Button
             onClick={applyStamps}
             disabled={placedStamps.length === 0 || applyStampsMutation.isPending}
           >
-            {applyStampsMutation.isPending ? 'Применение...' : 'Применить штампы'}
+            {applyStampsMutation.isPending ? t('stamps.applying') : t('stamps.applyStamps')}
           </Button>
         </div>
       </div>
